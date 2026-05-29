@@ -10,7 +10,7 @@ Two plugin hooks:
 
 ### `tool.definition`
 
-Fires once per tool per session. If the tool ID matches a slim description file in `tool/{id}.txt`, replaces the stock description with the slim version. All 17 built-in OpenCode tools (v1.15.x) are covered. Non-built-in tools (from plugins like Magic Context, PTY, AFT) are left untouched.
+Fires once per tool per session. If the tool ID matches a slim description file in `tool/{id}.txt`, replaces the stock description with the slim version. All 17 built-in OpenCode tools (v1.15.x) are covered (some are conditional on experimental flags). Non-built-in tools (from plugins like Magic Context, PTY, AFT) are left untouched.
 
 ### `experimental.chat.system.transform`
 
@@ -22,7 +22,7 @@ Fires when the system prompt is constructed. If the prompt looks like a bundled 
 
 | File | Purpose |
 |------|---------|
-| `tool/*.txt` | 17 slim tool descriptions (one per built-in tool) |
+| `tool/*.txt` | 17 slim tool descriptions (one per built-in tool — some are conditional on experimental flags) |
 | `prompt/default.txt` | Slim system prompt (identity + tone, ~240 tokens) |
 | `src/index.ts` | Server plugin — hooks into tool.definition and experimental.chat.system.transform |
 | `tui/index.tsx` | TUI sidebar panel — shows slim count, version, update indicator |
@@ -147,6 +147,7 @@ Restart OpenCode. On first TUI load you'll see a toast confirming the plugin loa
 
 ## Limitations
 
+- **`slimmed` count is shipped files, not runtime coverage** — The sidebar shows all 17 shipped description files. Actual tools slimmed depends on your experimental flags (`lsp`, `plan_exit`, `repo_clone`, etc. are conditional). For users without those flags enabled, the real count is ~14-15. The TUI always shows the larger number.
 - **Drift detection requires external script** — The plugin no longer attempts to track missing tool descriptions (too many false positives from plugin tools). Run `slim-plugin-check --diff` after an OpenCode update to see if new built-in tools need slim descriptions.
 - **System prompt replacement uses marker heuristics** — The hook looks for strings like "best coding agent on the planet" to identify stock prompts. Custom prompts (agents with custom `.md` files) are not touched.
 - **npm cache is sticky** — OpenCode never re-fetches a cached npm package. Clear `~/.cache/opencode/packages/opencode-slim-system@latest/` to force a fresh download.

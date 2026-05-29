@@ -136,16 +136,6 @@ function createSlimSidebarSlot(api: TuiPluginApi): TuiSlotPlugin {
   }
 }
 
-function semverGt(a: string, b: string): boolean {
-  const pa = a.split(".").map(Number)
-  const pb = b.split(".").map(Number)
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return true
-    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false
-  }
-  return false
-}
-
 const tui: TuiPlugin = async (api, _options, _meta) => {
   // Register sidebar slot
   api.slots.register(createSlimSidebarSlot(api))

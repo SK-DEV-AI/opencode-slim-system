@@ -1,4 +1,4 @@
-Apply file changes via opencode's patch format.
+Apply file changes via opencode's patch format (GPT models only).
 
 Wrap in:
   *** Begin Patch
