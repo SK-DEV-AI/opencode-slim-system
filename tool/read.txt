@@ -3,4 +3,4 @@ Returns `N: content` — never include the `N: ` prefix in Edit.
 Default: 2000 lines from start. Use offset (1-based) + limit. Lines >2000 chars truncated.
 Call in parallel for multiple files. Avoid 30-line slices — read larger windows.
 Use Glob/Grep first if unsure of path.
-Supports images and PDFs as attachments.
+Images and PDFs: returns file attachment — model must support vision/PDF to process. Text-only models cannot see image content.
