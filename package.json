@@ -26,12 +26,17 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./tui": {
+      "types": "./tui/index.tsx",
+      "default": "./tui/index.tsx"
     }
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "files": [
     "src",
+    "tui",
     "prompt",
     "tool",
     "README.md"
