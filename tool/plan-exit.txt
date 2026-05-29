@@ -1,3 +1,0 @@
-Signal that planning is complete and the plan file is ready.
-Prompts user to switch to the build agent.
-Do not use Question for "approve this plan?" — this tool handles that.

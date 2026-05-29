@@ -1,3 +1,0 @@
-Enter plan mode: analyze and plan without modifying files.
-Tools restricted — no writes, edits, or bash execution by default.
-Use for code review, architecture analysis, and generating plan files.
