@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 // @ts-nocheck
 import { createMemo, createSignal, onCleanup } from "solid-js"
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs"
 import path from "node:path"
 import os from "node:os"
 import type { TuiPlugin, TuiPluginApi, TuiThemeCurrent, TuiSlotPlugin } from "@opencode-ai/plugin/tui"
@@ -145,22 +145,24 @@ const tui: TuiPlugin = async (api, _options, _meta) => {
   // Register sidebar slot
   api.slots.register(createSlimSidebarSlot(api))
 
-  // Wait 1s for the server plugin to write a fresh status file, then read it.
-  // This avoids showing stale data from a previous session (the server and TUI
-  // load in separate processes and we can't control ordering).
-  setTimeout(() => {
+  // Delete stale status file from previous session — the server plugin writes
+  // a fresh one when a session starts, which the 5s sidebar poll picks up.
+  try { unlinkSync(STATUS_FILE) } catch { /* best-effort */ }
+
+  // Listen for the fresh file to appear, then toast once.
+  // The server and TUI load in separate processes so we can't rely on ordering.
+  const poll = setInterval(() => {
     const status = readStatus()
     if (!status) return
+    clearInterval(poll)
 
-    // Startup toast
     api.ui.toast({
-      title: status.plugin ?? "opencode-slim-system",
+      title: status.plugin ?? "opcode-slim-system",
       message: `${status.slimmed} tool descriptions slimmed`,
       variant: "success",
       duration: 4000,
     })
 
-    // Update announcement dialog
     if (status.update_available && status.latest_version) {
       setTimeout(() => {
         void showUpdateDialog(api, status)
