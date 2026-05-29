@@ -1,6 +1,6 @@
 import type { Hooks } from "@opencode-ai/plugin"
 import { DEFAULT_TOOL_DESCRIPTIONS, DEFAULT_SYSTEM_PROMPT } from "./defaults"
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs"
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs"
 import { execSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -8,6 +8,11 @@ import os from "node:os"
 
 const PLUGIN_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const STATUS_FILE = "/tmp/opencode-slim-system.json"
+const LOG_FILE = "/tmp/opencode-slim-system.log"
+
+function log(msg: string) {
+  try { appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`) } catch { /* best-effort */ }
+}
 const CACHE_DIR = path.join(os.homedir(), ".local", "state", "opencode-slim-system")
 const CONFIG_DIR = path.join(os.homedir(), ".config", "opencode", "slim-system")
 const CONFIG_TOOLS_DIR = path.join(CONFIG_DIR, "tool")
@@ -201,8 +206,8 @@ let SLIM_SYSTEM_PROMPT_MODEL = readFileContent(path.join(PROMPT_DIR, `${MODEL_KE
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
 
-console.log(`[slim-system] init model=${CURRENT_MODEL} key=${MODEL_KEY} tools=${Object.keys(SLIM_TOOLS).length} per-model-prompt=${!!SLIM_SYSTEM_PROMPT_MODEL}`)
-if (SLIM_SYSTEM_PROMPT_MODEL) console.log(`[slim-system] using per-model prompt: prompt/${MODEL_KEY}.txt`)
+log(`init model=${CURRENT_MODEL} key=${MODEL_KEY} tools=${Object.keys(SLIM_TOOLS).length} per-model-prompt=${!!SLIM_SYSTEM_PROMPT_MODEL}`)
+if (SLIM_SYSTEM_PROMPT_MODEL) log(`using per-model prompt: prompt/${MODEL_KEY}.txt`)
 
 // ─── Background npm version check (async) ───
 const pluginVersion = getPluginVersion()
@@ -278,7 +283,7 @@ export default async function plugin(
         }
         matched = true
       }
-      if (matched) console.log(`[slim-system] prompt replaced source=${SLIM_SYSTEM_PROMPT_MODEL ? `prompt/${MODEL_KEY}.txt` : "prompt/default.txt"}`)
+      if (matched) log(`prompt replaced source=${SLIM_SYSTEM_PROMPT_MODEL ? `prompt/${MODEL_KEY}.txt` : "prompt/default.txt"}`)
     },
 
     "tool.definition": async (input, output) => {
@@ -293,7 +298,7 @@ export default async function plugin(
       const desc = customTools[input.toolID] ?? fsTools[modelKey] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
       if (desc) {
         output.description = desc
-        if (isPerModel) console.log(`[slim-system] tool=${input.toolID} per-model=${modelKey}`)
+        if (isPerModel) log(`tool=${input.toolID} per-model=${modelKey}`)
       }
     },
   }
