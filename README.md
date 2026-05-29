@@ -97,6 +97,12 @@ Inline options (`tools`/`prompt`) win over files, files win over bundled, bundle
 
 Use `toolsDir` and `promptFile` when your descriptions are too long for inline JSON. Both paths are absolute or relative to the opencode working directory.
 
+### Auto-seeding
+
+If `toolsDir` points to a directory that doesn't exist yet, the plugin creates it on first run and copies all bundled `tool/*.txt` files into it as editable starting material. Same for `promptFile` — if the file doesn't exist, the bundled prompt is written there.
+
+Your copies take priority over the bundled ones (per the priority chain) and survive npm updates since they're outside the npm cache. Any tool you don't edit keeps the slim description you already know.
+
 ## Customization
 
 ### System Prompt

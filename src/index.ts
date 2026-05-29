@@ -124,6 +124,17 @@ export default async function plugin(
   const toolsDir = typeof options?.toolsDir === "string" ? options.toolsDir : ""
   const promptFile = typeof options?.promptFile === "string" ? options.promptFile : ""
 
+  // Seed user's toolsDir with bundled defaults if it doesn't exist yet.
+  // This gives them editable starting material that survives npm updates.
+  if (toolsDir && !existsSync(toolsDir)) {
+    try {
+      mkdirSync(toolsDir, { recursive: true })
+      for (const [id, content] of Object.entries(SLIM_TOOLS)) {
+        writeFileSync(path.join(toolsDir, `${id}.txt`), content + "\n")
+      }
+    } catch { /* best-effort */ }
+  }
+
   const fsTools: Record<string, string> = {}
   if (toolsDir) {
     try {
@@ -136,6 +147,14 @@ export default async function plugin(
     } catch {
       // best-effort — invalid path logs nothing
     }
+  }
+
+  // Seed user's promptFile with bundled default if it doesn't exist
+  if (promptFile && !existsSync(promptFile)) {
+    try {
+      mkdirSync(path.dirname(promptFile), { recursive: true })
+      writeFileSync(promptFile, SLIM_SYSTEM_PROMPT + "\n")
+    } catch { /* best-effort */ }
   }
 
   let fsPrompt = ""
