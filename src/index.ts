@@ -201,6 +201,9 @@ let SLIM_SYSTEM_PROMPT_MODEL = readFileContent(path.join(PROMPT_DIR, `${MODEL_KE
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
 
+console.log(`[slim-system] init model=${CURRENT_MODEL} key=${MODEL_KEY} tools=${Object.keys(SLIM_TOOLS).length} per-model-prompt=${!!SLIM_SYSTEM_PROMPT_MODEL}`)
+if (SLIM_SYSTEM_PROMPT_MODEL) console.log(`[slim-system] using per-model prompt: prompt/${MODEL_KEY}.txt`)
+
 // ─── Background npm version check (async) ───
 const pluginVersion = getPluginVersion()
 checkLatestVersion().then((latest) => {
@@ -259,6 +262,7 @@ export default async function plugin(
 
   return {
     "experimental.chat.system.transform": async (_input, output) => {
+      let matched = false
       for (let i = 0; i < output.system.length; i++) {
         const text = output.system[i]
         const isDefault = DEFAULT_PROMPT_MARKERS.some((m) => text.includes(m))
@@ -272,7 +276,9 @@ export default async function plugin(
         } else {
           output.system[i] = prompt
         }
+        matched = true
       }
+      if (matched) console.log(`[slim-system] prompt replaced source=${SLIM_SYSTEM_PROMPT_MODEL ? `prompt/${MODEL_KEY}.txt` : "prompt/default.txt"}`)
     },
 
     "tool.definition": async (input, output) => {
@@ -283,9 +289,11 @@ export default async function plugin(
       // priority: inline > toolsDir/{id}.{model}.txt > toolsDir/{id}.txt > config dir > embedded default > stock
       // model key = short name (strips provider prefix like "opencode/") so filenames don't create nested dirs.
       const modelKey = `${input.toolID}.${MODEL_KEY}`
+      const isPerModel = customTools[input.toolID] ? false : fsTools[modelKey] ? true : false
       const desc = customTools[input.toolID] ?? fsTools[modelKey] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
       if (desc) {
         output.description = desc
+        if (isPerModel) console.log(`[slim-system] tool=${input.toolID} per-model=${modelKey}`)
       }
     },
   }
