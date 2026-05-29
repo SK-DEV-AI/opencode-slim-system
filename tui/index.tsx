@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 // @ts-nocheck
 import { createMemo, createSignal, onCleanup } from "solid-js"
-import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import path from "node:path"
 import os from "node:os"
 import type { TuiPlugin, TuiPluginApi, TuiThemeCurrent, TuiSlotPlugin } from "@opencode-ai/plugin/tui"
@@ -13,7 +13,12 @@ const ANNOUNCED_FILE = path.join(os.homedir(), ".local", "state", "opencode-slim
 function readStatus() {
   try {
     if (!existsSync(STATUS_FILE)) return null
-    return JSON.parse(readFileSync(STATUS_FILE, "utf-8"))
+    const data = JSON.parse(readFileSync(STATUS_FILE, "utf-8"))
+    // If the status file is from a different version, it's stale — ignore it.
+    // The server plugin writes a fresh one when a session starts.
+    const fileVersion = String((data.plugin as string) ?? "").split("@").pop()
+    if (fileVersion && fileVersion !== packageJson.version) return null
+    return data
   } catch {
     return null
   }
@@ -145,11 +150,7 @@ const tui: TuiPlugin = async (api, _options, _meta) => {
   // Register sidebar slot
   api.slots.register(createSlimSidebarSlot(api))
 
-  // Delete stale status file from previous session — the server plugin writes
-  // a fresh one when a session starts, which the 5s sidebar poll picks up.
-  try { unlinkSync(STATUS_FILE) } catch { /* best-effort */ }
-
-  // Listen for the fresh file to appear, then toast once.
+  // Listen for the server plugin to write a fresh status file, then toast once.
   // The server and TUI load in separate processes so we can't rely on ordering.
   const poll = setInterval(() => {
     const status = readStatus()
