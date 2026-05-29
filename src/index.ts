@@ -117,6 +117,8 @@ export default async function plugin(
   const exclude = new Set<string>(
     Array.isArray(options?.exclude) ? (options.exclude as string[]) : [],
   )
+  const customTools = (options?.tools as Record<string, string> | undefined) ?? {}
+  const customPrompt = typeof options?.prompt === "string" ? options.prompt : ""
 
   return {
     "experimental.chat.system.transform": async (_input, output) => {
@@ -125,20 +127,21 @@ export default async function plugin(
         const isDefault = DEFAULT_PROMPT_MARKERS.some((m) => text.includes(m))
         if (!isDefault) continue
 
+        const prompt = customPrompt || SLIM_SYSTEM_PROMPT
         const envIdx = text.indexOf(ENV_MARKER)
         if (envIdx !== -1) {
-          output.system[i] = SLIM_SYSTEM_PROMPT + "\n" + text.slice(envIdx)
+          output.system[i] = prompt + "\n" + text.slice(envIdx)
         } else {
-          output.system[i] = SLIM_SYSTEM_PROMPT
+          output.system[i] = prompt
         }
       }
     },
 
     "tool.definition": async (input, output) => {
       if (exclude.has(input.toolID)) return
-      const slim = SLIM_TOOLS[input.toolID]
-      if (slim) {
-        output.description = slim
+      const desc = customTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
+      if (desc) {
+        output.description = desc
       }
     },
   }

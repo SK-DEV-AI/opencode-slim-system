@@ -68,14 +68,28 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 ```jsonc
 {
   "plugin": [
-    ["opencode-slim-system", { "exclude": ["websearch", "webfetch"] }]
+    ["opencode-slim-system", {
+      "exclude": ["websearch"],
+      "tools": {
+        "bash": "Run shell commands with full interactive PTY support."
+      },
+      "prompt": "You are opencode, an interactive CLI tool..."
+    }]
   ]
 }
 ```
 
-### `exclude` (optional)
+### Options
 
-Array of tool IDs to keep at their original stock descriptions. Useful if you prefer the full description for specific tools (e.g., `read`, `websearch`). All other built-in tools are slimmed.
+| Key | Type | Description |
+|-----|------|-------------|
+| `exclude` | `string[]` | Tool IDs to keep at original stock descriptions |
+| `tools` | `Record<string, string>` | Per-tool description overrides (takes priority over bundled files) |
+| `prompt` | `string` | Full system prompt override (takes priority over bundled `prompt/default.txt`) |
+
+Priority chain: `options.tools[toolID]` → shipped `tool/{id}.txt` → original opencode description. Same for prompt: `options.prompt` → shipped `prompt/default.txt`.
+
+This means you can keep custom descriptions in your `opencode.jsonc` that survive npm updates — no need to edit files in the npm cache.
 
 ## Customization
 
