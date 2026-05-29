@@ -2,7 +2,7 @@
 
 Reduces per-request token overhead by replacing OpenCode's bundled system prompt and built-in tool descriptions with compact versions.
 
-Saves **~1,500 tokens/request** from the system prompt and **~8,700 tokens/request** from tool descriptions — ~10,200 total tokens saved on every request.
+Saves **~1,400 tokens/request** from the system prompt and **~8,300 tokens/request** from tool descriptions — ~9,700 total tokens saved on every request.
 
 ## How It Works
 
@@ -33,26 +33,33 @@ Registered at sidebar order 899. Shows:
 
 - **Tools slimmed** — count of covered built-in tools (green)
 - **⬆ Update available** — when npm has a newer version (warning color, with version number)
+- **plugin not loaded** — shown briefly before the server plugin writes its status file (normal on first load)
 - **Update dialog** — on first TUI start per version, shows current vs latest + GitHub releases link
 
 Dismissed versions are persisted to `~/.local/state/opencode-slim-system/announced.json`.
 
 ## Status File
 
-The plugin writes `/tmp/opencode-slim-system.json` at startup:
+The server plugin writes `/tmp/opencode-slim-system.json` at startup:
 
 ```json
 {
-  "plugin": "opencode-slim-system@1.1.0",
+  "plugin": "opencode-slim-system@1.1.4",
   "opencode": "1.15.12",
   "slimmed": 17,
   "tools": ["apply_patch", "bash", "edit", ...],
-  "latest_version": "1.0.9",
-  "update_available": true
+  "latest_version": "1.1.4"
 }
 ```
 
-`latest_version` and `update_available` appear after the background npm check completes (usually within 1-2 seconds).
+The TUI sidebar polls this file every 5 seconds. It ignores stale files from a
+previous npm version (compares the embedded `plugin` version against its own
+installed version). When a fresh file appears after a session starts, the
+sidebar updates and a startup toast fires once.
+
+`latest_version` appears after the background npm check completes (usually
+within 1-2 seconds). If a newer version exists, `update_available: true` is
+also written to the file and the sidebar shows an ⬆ indicator.
 
 ## Customization
 
@@ -140,7 +147,7 @@ Restart OpenCode. On first TUI load you'll see a toast confirming the plugin loa
 
 ## Limitations
 
-- **Cannot distinguish built-in tools from plugin tools at runtime** — The `tool.definition` hook fires for every tool in the system regardless of origin. The plugin silmply checks whether it has a slim description for the tool ID and does nothing if it doesn't. Drift detection requires the external `slim-plugin-check` script.
+- **Drift detection requires external script** — The plugin no longer attempts to track missing tool descriptions (too many false positives from plugin tools). Run `slim-plugin-check --diff` after an OpenCode update to see if new built-in tools need slim descriptions.
 - **System prompt replacement uses marker heuristics** — The hook looks for strings like "best coding agent on the planet" to identify stock prompts. Custom prompts (agents with custom `.md` files) are not touched.
 - **npm cache is sticky** — OpenCode never re-fetches a cached npm package. Clear `~/.cache/opencode/packages/opencode-slim-system@latest/` to force a fresh download.
 
