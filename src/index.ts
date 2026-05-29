@@ -87,7 +87,7 @@ function modelToKey(model: string): string {
 function resolvePlaceholders(text: string): string {
   const year = new Date().getFullYear().toString()
   const plat = os.platform() === "win32" ? "windows" : os.platform() === "darwin" ? "macos" : "linux"
-  const sh = path.basename(os.env?.SHELL ?? "/bin/bash")
+  const sh = path.basename(process.env.SHELL ?? "/bin/bash")
   return text.replace(/\{\{year\}\}/g, year).replace(/\$\{os\}/g, plat).replace(/\$\{shell\}/g, sh)
 }
 
@@ -321,17 +321,25 @@ export default async function plugin(
         // priority: config dir per-model > config dir default > embedded default
         const prompt = SLIM_SYSTEM_PROMPT_MODEL || SLIM_SYSTEM_PROMPT
 
-        // Always preserve environment metadata block (starts after ENV_MARKER).
-        // When the marker is absent, still search for env-like suffixes to avoid
-        // dropping the model info, directory, and system context.
-        const envIdx = text.indexOf(ENV_MARKER)
-        if (envIdx !== -1) {
-          output.system[i] = prompt + "\n" + text.slice(envIdx)
-        } else {
-          // No known marker — still preserve everything after the prompt injection
-          // point to avoid dropping model info, directory user, instructions.
-          output.system[i] = prompt
+        // Preserve the environment metadata block that opencode appends after
+        // the system prompt (model info, directory, date, instructions).
+        // Try multiple markers in descending specificity, falling back to the
+        // full original text as suffix to never drop context.
+        const envBlockMarkers = [
+          ENV_MARKER,
+          "You are powered by",
+          "\nInstructions from:",
+          "\nHere is some useful information",
+          "\nYou are a",
+        ]
+        let suffixStart = -1
+        for (const m of envBlockMarkers) {
+          const idx = text.indexOf(m)
+          if (idx !== -1) { suffixStart = idx; break }
         }
+        output.system[i] = suffixStart !== -1
+          ? prompt + "\n" + text.slice(suffixStart)
+          : prompt
         matched = true
       }
       if (matched) log(`prompt replaced source=${SLIM_SYSTEM_PROMPT_MODEL ? `prompt/${MODEL_KEY}.txt` : "prompt/default.txt"}`)
