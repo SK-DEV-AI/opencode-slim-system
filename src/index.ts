@@ -1,6 +1,6 @@
 import type { Hooks } from "@opencode-ai/plugin"
 import { DEFAULT_TOOL_DESCRIPTIONS, DEFAULT_SYSTEM_PROMPT } from "./defaults"
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs"
 import { execSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -40,6 +40,11 @@ function semverGt(a: string, b: string): boolean {
   return false
 }
 
+/** Expand leading ~/ to os.homedir(). Node's fs methods don't do this. */
+function resolveTilde(p: string): string {
+  return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p
+}
+
 function readToolsFromDir(dir: string): Record<string, string> {
   const tools: Record<string, string> = {}
   if (!existsSync(dir)) return tools
@@ -56,16 +61,39 @@ function readFileContent(fp: string): string {
   try { return readFileSync(fp, "utf-8").trimEnd() } catch { return "" }
 }
 
+function writeDirFromMap(dir: string, map: Record<string, string>) {
+  mkdirSync(dir, { recursive: true })
+  for (const [id, content] of Object.entries(map)) {
+    writeFileSync(path.join(dir, `${id}.txt`), content + "\n")
+  }
+}
+
+/** Seed config dir on first run AND write any missing tool files (upgrade seeding). */
 function seedConfigDir() {
-  if (!existsSync(CONFIG_TOOLS_DIR)) {
+  const toolsExist = existsSync(CONFIG_TOOLS_DIR)
+  const promptExist = existsSync(CONFIG_PROMPT_FILE)
+
+  if (!toolsExist) {
     try {
-      mkdirSync(CONFIG_TOOLS_DIR, { recursive: true })
-      for (const [id, content] of Object.entries(DEFAULT_TOOL_DESCRIPTIONS)) {
-        writeFileSync(path.join(CONFIG_TOOLS_DIR, `${id}.txt`), content + "\n")
+      writeDirFromMap(CONFIG_TOOLS_DIR, DEFAULT_TOOL_DESCRIPTIONS)
+    } catch { /* best-effort */ }
+  } else {
+    // Upgrade seeding: write any tool files present in defaults but missing from config dir.
+    // This catches new tools added by opencode after the user's config dir was seeded.
+    try {
+      const existing = new Set(readdirSync(CONFIG_TOOLS_DIR).filter((f) => f.endsWith(".txt")))
+      for (const id of Object.keys(DEFAULT_TOOL_DESCRIPTIONS)) {
+        if (!existing.has(`${id}.txt`)) {
+          writeFileSync(
+            path.join(CONFIG_TOOLS_DIR, `${id}.txt`),
+            DEFAULT_TOOL_DESCRIPTIONS[id] + "\n",
+          )
+        }
       }
     } catch { /* best-effort */ }
   }
-  if (!existsSync(CONFIG_PROMPT_FILE)) {
+
+  if (!promptExist) {
     try {
       mkdirSync(path.dirname(CONFIG_PROMPT_FILE), { recursive: true })
       writeFileSync(CONFIG_PROMPT_FILE, DEFAULT_SYSTEM_PROMPT + "\n")
@@ -118,7 +146,6 @@ function saveAnnouncedVersion(version: string) {
 
 // ─── Module init (sync) ───
 
-// Seed ~/.config/opencode/slim-system/ from embedded defaults on first run
 seedConfigDir()
 
 // Read from config dir (user-editable files in ~/.config/opencode/)
@@ -166,17 +193,27 @@ export default async function plugin(
   const customTools = (options?.tools as Record<string, string> | undefined) ?? {}
   const customPrompt = typeof options?.prompt === "string" ? options.prompt : ""
 
-  // Resolve paths: default to ~/.config/opencode/slim-system/, override via config
-  const toolsDir = typeof options?.toolsDir === "string" ? options.toolsDir : CONFIG_TOOLS_DIR
-  const promptFile = typeof options?.promptFile === "string" ? options.promptFile : CONFIG_PROMPT_FILE
+  // ── reset: wipe config dir and reseed from defaults ──
+  if (options?.reset === true) {
+    try {
+      rmSync(CONFIG_DIR, { recursive: true, force: true })
+      seedConfigDir()
+      // Reload module-level vars
+      SLIM_TOOLS = readToolsFromDir(CONFIG_TOOLS_DIR)
+      SLIM_SYSTEM_PROMPT = readFileContent(CONFIG_PROMPT_FILE)
+      Object.assign(STATUS, buildStatus(SLIM_TOOLS))
+      writeStatus(STATUS)
+    } catch { /* best-effort */ }
+  }
+
+  // Resolve paths with tilde expansion (Node's fs doesn't expand ~)
+  const toolsDir = typeof options?.toolsDir === "string" ? resolveTilde(options.toolsDir) : CONFIG_TOOLS_DIR
+  const promptFile = typeof options?.promptFile === "string" ? resolveTilde(options.promptFile) : CONFIG_PROMPT_FILE
 
   // Auto-seed custom paths if they don't exist
   if (toolsDir !== CONFIG_TOOLS_DIR && !existsSync(toolsDir)) {
     try {
-      mkdirSync(toolsDir, { recursive: true })
-      for (const [id, content] of Object.entries(DEFAULT_TOOL_DESCRIPTIONS)) {
-        writeFileSync(path.join(toolsDir, `${id}.txt`), content + "\n")
-      }
+      writeDirFromMap(toolsDir, DEFAULT_TOOL_DESCRIPTIONS)
     } catch { /* best-effort */ }
   }
   if (promptFile !== CONFIG_PROMPT_FILE && !existsSync(promptFile)) {
@@ -210,6 +247,10 @@ export default async function plugin(
 
     "tool.definition": async (input, output) => {
       if (exclude.has(input.toolID)) return
+      // Per-model tool descriptions ({id}.{model}.txt) are not possible here because
+      // ToolDefinitionInput only contains toolID — the plugin API provides no model info
+      // at this hook. If opencode adds it in the future, we can branch here.
+      //
       // priority: inline > toolsDir/*.txt > config dir > embedded default > stock
       const desc = customTools[input.toolID] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
       if (desc) {

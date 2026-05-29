@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "opencode-slim-system plugin options",
+  "description": "Configuration schema for the opencode-slim-system plugin options in opencode.jsonc",
+  "type": "object",
+  "properties": {
+    "exclude": {
+      "description": "Tool IDs to keep at original stock descriptions (not slimmed)",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "tools": {
+      "description": "Inline description overrides for any tool ID (built-in or plugin). Highest priority.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "prompt": {
+      "description": "Inline system prompt override. Takes precedence over promptFile and the config dir.",
+      "type": "string"
+    },
+    "toolsDir": {
+      "description": "Custom path to a directory of {id}.txt tool description files. Default: ~/.config/opencode/slim-system/tool/",
+      "type": "string"
+    },
+    "promptFile": {
+      "description": "Custom path to a system prompt text file. Default: ~/.config/opencode/slim-system/prompt/default.txt",
+      "type": "string"
+    },
+    "reset": {
+      "description": "When true, wipes the config directory and reseeds from embedded defaults on next restart.",
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

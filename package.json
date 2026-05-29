@@ -34,9 +34,17 @@
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "bin": {
+    "opencode-slim-export": "./cli/export.js",
+    "opencode-slim-import": "./cli/import.js",
+    "opencode-slim-dump": "./cli/dump.js",
+    "opencode-slim-check": "./slim-plugin-check"
+  },
   "files": [
     "src",
     "tui",
+    "cli",
+    "tool",
     "README.md"
   ],
   "engines": {

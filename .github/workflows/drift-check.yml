@@ -1,0 +1,36 @@
+name: Drift Check
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+  workflow_dispatch: # manual trigger
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./slim-plugin-check || true
+        id: check
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require("child_process");
+            const output = execSync("./slim-plugin-check", { encoding: "utf-8" });
+            if (output.includes("✗ MISSING") || output.includes("✗ EXTRA")) {
+              const body = `## Drift Detected\n\n\`\`\`\n${output}\n\`\`\`\n\nRun \`./slim-plugin-check --diff\` locally for exact add/remove/publish commands.`;
+              const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                labels: ["drift"],
+              });
+              if (issues.data.length === 0) {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: "Tool descriptions drifted from latest opencode",
+                  body,
+                  labels: ["drift"],
+                });
+              }
+            }

@@ -70,8 +70,10 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
   "plugin": [
     ["opencode-slim-system", {
       "exclude": ["websearch"],
-      "toolsDir": "~/.config/opencode/slim-tools/",
-      "promptFile": "~/.config/opencode/my-prompt.txt"
+      // Note: Node's fs doesn't expand ~ — use absolute or relative paths.
+      // For home-relative, use the env var ${HOME}/.config/...
+      "toolsDir": "/home/user/.config/opencode/slim-tools/",
+      "promptFile": "/home/user/.config/opencode/my-prompt.txt"
     }]
   ]
 }
@@ -81,6 +83,7 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 
 | Key | Type | Description |
 |-----|------|-------------|
+| `reset` | `boolean` | When true, wipes the config directory and reseeds from embedded defaults on next restart |
 | `exclude` | `string[]` | Tool IDs to keep at original stock descriptions |
 | `tools` | `Record<string, string>` | Inline description overrides for **any** tool ID (built-in or plugin) |
 | `prompt` | `string` | Inline system prompt override |
@@ -122,13 +125,15 @@ No npm cache clearance needed — files are read fresh on every session. To rese
 When OpenCode adds new built-in tools or changes tool IDs, the shipped `tool/*.txt` files may fall out of sync. The repo ships `slim-plugin-check` (bash, no deps) for maintainers:
 
 ```bash
-git clone https://github.com/SK-DEV-AI/opencode-slim-system
-cd opencode-slim-system
+# From the repo clone
 ./slim-plugin-check          # check coverage
 ./slim-plugin-check --diff   # show add/remove/publish commands
+
+# Or via npx (npm-installed)
+npx opencode-slim-check
 ```
 
-Not available from npm — clone the repo to use it. Most users don't need this; the plugin works fine as-is.
+A CI workflow (`.github/workflows/drift-check.yml`) runs weekly and opens an issue if drift is detected.
 
 ## Self-Update Notification
 
@@ -139,6 +144,17 @@ At startup, the server plugin fetches `https://registry.npmjs.org/opencode-slim-
 3. A dialog appears on first TUI start per version (dismiss once, silenced until next release)
 
 No polling — the npm check runs once at startup with a 5-second timeout.
+
+## CLI Commands
+
+These are available via `npx opencode-slim-<cmd>` when the package is installed globally, or directly from the repo clone.
+
+| Command | Description |
+|---------|-------------|
+| `opencode-slim-export` | Export config dir as JSON. `npx opencode-slim-export > backup.json` |
+| `opencode-slim-import <file>` | Import JSON blob into config dir. `npx opencode-slim-import backup.json` |
+| `opencode-slim-dump` | Dump embedded defaults as JSON (ignores user edits). Add `--config-dir` to dump the actual config dir instead. |
+| `opencode-slim-check` | Drift check (same as `./slim-plugin-check` in the repo) |
 
 ## Files on Disk
 
@@ -183,7 +199,8 @@ Restart OpenCode. On first TUI load you'll see a toast confirming the plugin loa
 ## Limitations
 
 - **`slimmed` count is config dir files, not runtime coverage** — The sidebar shows all 17 files in `~/.config/opencode/slim-system/tool/`. Actual tools slimmed depends on your experimental flags (`lsp`, `plan_exit`, `repo_clone`, etc. are conditional). For users without those flags enabled, the real count is ~14-15. The TUI always shows the larger number.
-- **Drift detection requires repo clone** — The plugin no longer attempts to track missing tool descriptions (too many false positives from plugin tools). Clone the repo and run `./slim-plugin-check --diff` after an OpenCode update to see if new built-in tools need slim descriptions.
+- **Drift detection is a maintainer tool** — `npx opencode-slim-check` is aimed at repo maintainers, not end users. Most users never need it; the plugin works fine as-is.
+
 - **System prompt replacement uses marker heuristics** — The hook looks for strings like "best coding agent on the planet" to identify stock prompts. Custom prompts (agents with custom `.md` files) are not touched.
 
 ## Architecture
