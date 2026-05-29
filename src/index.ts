@@ -37,12 +37,20 @@ function semverGt(a: string, b: string): boolean {
   return false
 }
 
+// Tool ID prefixes from other plugins — never track as "missing"
+const PLUGIN_TOOL_PREFIXES = ["ctx_", "pty_", "aft_", "ast_grep_"]
+
+function isBuiltinTool(toolID: string): boolean {
+  return !PLUGIN_TOOL_PREFIXES.some((p) => toolID.startsWith(p))
+}
+
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
   return {
     plugin: `opencode-slim-system@${getPluginVersion()}`,
     opencode: getOpencodeVersion(),
     slimmed: Object.keys(tools).length,
     tools: Object.keys(tools),
+    missing: [],
   }
 }
 
@@ -131,6 +139,12 @@ export default async function plugin(): Promise<Hooks> {
       const slim = SLIM_TOOLS[input.toolID]
       if (slim) {
         output.description = slim
+      } else if (isBuiltinTool(input.toolID)) {
+        // Track built-in tools we don't have slim descriptions for
+        if (!STATUS.missing.includes(input.toolID)) {
+          STATUS.missing.push(input.toolID)
+          writeStatus(STATUS)
+        }
       }
     },
   }
