@@ -84,7 +84,7 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 | Key | Type | Description |
 |-----|------|-------------|
 | `exclude` | `string[]` | Tool IDs to keep at original stock descriptions |
-| `tools` | `Record<string, string>` | Per-tool description overrides (takes priority over bundled files) |
+| `tools` | `Record<string, string>` | Description overrides for **any** tool ID (built-in or plugin — e.g., `aft_search`, `ctx_memory`, `pty_spawn`). Takes priority over shipped files and plugin stock descriptions. |
 | `prompt` | `string` | Full system prompt override (takes priority over bundled `prompt/default.txt`) |
 
 Priority chain: `options.tools[toolID]` → shipped `tool/{id}.txt` → original opencode description. Same for prompt: `options.prompt` → shipped `prompt/default.txt`.
@@ -118,14 +118,16 @@ Each `tool/{id}.txt` file corresponds to a tool ID from OpenCode's registry. Edi
 
 ## Drift Detection
 
-When OpenCode adds new built-in tools or changes tool IDs, the shipped `tool/*.txt` files may fall out of sync. Use the companion CLI script:
+When OpenCode adds new built-in tools or changes tool IDs, the shipped `tool/*.txt` files may fall out of sync. The repo ships `slim-plugin-check` (bash, no deps) for maintainers:
 
 ```bash
-slim-plugin-check       # check coverage
-slim-plugin-check --diff  # show exact add/remove/publish commands
+git clone https://github.com/SK-DEV-AI/opencode-slim-system
+cd opencode-slim-system
+./slim-plugin-check          # check coverage
+./slim-plugin-check --diff   # show add/remove/publish commands
 ```
 
-The script lives at `~/.local/bin/slim-plugin-check` (not shipped with this npm package).
+Not available from npm — clone the repo to use it. Most users don't need this; the plugin works fine as-is.
 
 ## Self-Update Notification
 
@@ -178,7 +180,7 @@ Restart OpenCode. On first TUI load you'll see a toast confirming the plugin loa
 ## Limitations
 
 - **`slimmed` count is shipped files, not runtime coverage** — The sidebar shows all 17 shipped description files. Actual tools slimmed depends on your experimental flags (`lsp`, `plan_exit`, `repo_clone`, etc. are conditional). For users without those flags enabled, the real count is ~14-15. The TUI always shows the larger number.
-- **Drift detection requires external script** — The plugin no longer attempts to track missing tool descriptions (too many false positives from plugin tools). Run `slim-plugin-check --diff` after an OpenCode update to see if new built-in tools need slim descriptions.
+- **Drift detection requires repo clone** — The plugin no longer attempts to track missing tool descriptions (too many false positives from plugin tools). Clone the repo and run `./slim-plugin-check --diff` after an OpenCode update to see if new built-in tools need slim descriptions.
 - **System prompt replacement uses marker heuristics** — The hook looks for strings like "best coding agent on the planet" to identify stock prompts. Custom prompts (agents with custom `.md` files) are not touched.
 - **npm cache is sticky** — OpenCode never re-fetches a cached npm package. Clear `~/.cache/opencode/packages/opencode-slim-system@latest/` to force a fresh download.
 
