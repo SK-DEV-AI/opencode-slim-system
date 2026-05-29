@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "opencode-slim-system",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Slim OpenCode system prompt and built-in tool descriptions to reduce per-request token overhead. Plugs into the tool.definition and experimental.chat.system.transform hooks.",
   "type": "module",
   "license": "MIT",
