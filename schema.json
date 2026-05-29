@@ -1,7 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/SK-DEV-AI/opencode-slim-system/master/schema.json",
   "title": "opencode-slim-system plugin options",
   "description": "Configuration schema for the opencode-slim-system plugin options in opencode.jsonc",
+  "version": 2,
   "type": "object",
   "properties": {
     "exclude": {

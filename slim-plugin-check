@@ -9,6 +9,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$SCRIPT_DIR/tool"
 PKG="$SCRIPT_DIR/package.json"
+
+if ! command -v opencode &>/dev/null; then
+  echo "✗ opencode not found in PATH — install it first" >&2
+  echo "  curl -fsSL https://opencode.ai/install.sh | sh" >&2
+  exit 1
+fi
 OPCODE_VER=$(opencode --version 2>/dev/null || echo "unknown")
 PLUGIN_VER=$(jq -r '.version' "$PKG" 2>/dev/null || echo "unknown")
 echo "opencode: $OPCODE_VER | slim-system: $PLUGIN_VER"

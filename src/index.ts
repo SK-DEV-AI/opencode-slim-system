@@ -16,7 +16,8 @@ function log(msg: string) {
 const CACHE_DIR = path.join(os.homedir(), ".local", "state", "opencode-slim-system")
 const CONFIG_DIR = path.join(os.homedir(), ".config", "opencode", "slim-system")
 const CONFIG_TOOLS_DIR = path.join(CONFIG_DIR, "tool")
-const CONFIG_PROMPT_FILE = path.join(CONFIG_DIR, "prompt", "default.txt")
+const CONFIG_PROMPT_DIR = path.join(CONFIG_DIR, "prompt")
+const CONFIG_PROMPT_FILE = path.join(CONFIG_PROMPT_DIR, "default.txt")
 
 function getPluginVersion(): string {
   try {
@@ -80,20 +81,32 @@ function modelToKey(model: string): string {
   return idx >= 0 ? model.slice(idx + 1) : model
 }
 
+/** Resolve runtime placeholders that stock opencode renders dynamically but our
+ *  static descriptions bypass. Stock tools use getters/render functions that
+ *  we bypass via `tool.definition` hook replacement. */
+function resolvePlaceholders(text: string): string {
+  const year = new Date().getFullYear().toString()
+  const plat = os.platform() === "win32" ? "windows" : os.platform() === "darwin" ? "macos" : "linux"
+  const sh = path.basename(os.env?.SHELL ?? "/bin/bash")
+  return text.replace(/\{\{year\}\}/g, year).replace(/\$\{os\}/g, plat).replace(/\$\{shell\}/g, sh)
+}
+
+/** Distinguish base tool IDs from per-model variants (e.g. `bash.claude-sonnet-4`).
+ *  A key is a base tool if it does NOT end with `.${MODEL_KEY}`. */
+function isBaseTool(key: string): boolean {
+  return !key.endsWith(`.${MODEL_KEY}`)
+}
+
 function readToolsFromDir(dir: string): Record<string, string> {
   const tools: Record<string, string> = {}
   if (!existsSync(dir)) return tools
   try {
     for (const name of readdirSync(dir)) {
       if (!name.endsWith(".txt")) continue
-      tools[name.slice(0, -4)] = readFileSync(path.join(dir, name), "utf-8").trimEnd()
+      tools[name.slice(0, -4)] = resolvePlaceholders(readFileSync(path.join(dir, name), "utf-8").trimEnd())
     }
   } catch { /* best-effort */ }
   return tools
-}
-
-function readFileContent(fp: string): string {
-  try { return readFileSync(fp, "utf-8").trimEnd() } catch { return "" }
 }
 
 function writeDirFromMap(dir: string, map: Record<string, string>) {
@@ -103,7 +116,10 @@ function writeDirFromMap(dir: string, map: Record<string, string>) {
   }
 }
 
-/** Seed config dir on first run AND write any missing tool files (upgrade seeding). */
+/** Seed config dir on first run AND write any missing tool files (upgrade seeding).
+ *  To permanently exclude a tool from slimming, use the `exclude` option in
+ *  opencode.jsonc — deleting files from the config dir is not supported (they
+ *  get recreated on next restart if present in embedded defaults). */
 function seedConfigDir() {
   const toolsExist = existsSync(CONFIG_TOOLS_DIR)
   const promptExist = existsSync(CONFIG_PROMPT_FILE)
@@ -130,7 +146,7 @@ function seedConfigDir() {
 
   if (!promptExist) {
     try {
-      mkdirSync(path.dirname(CONFIG_PROMPT_FILE), { recursive: true })
+      mkdirSync(CONFIG_PROMPT_DIR, { recursive: true })
       writeFileSync(CONFIG_PROMPT_FILE, DEFAULT_SYSTEM_PROMPT + "\n")
     } catch { /* best-effort */ }
   }
@@ -147,17 +163,17 @@ function seedConfigDir() {
 const STOCK_TOOL_CHARS = 16395
 
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
-  const baseTools = Object.keys(tools).filter((k) => !k.includes("."))
-  const slimChars = baseTools.reduce((sum, k) => sum + (tools[k]?.length ?? 0), 0)
+  const baseToolIds = Object.keys(tools).filter(isBaseTool)
+  const slimChars = baseToolIds.reduce((sum, k) => sum + (tools[k]?.length ?? 0), 0)
   const tokensSaved = Math.round((STOCK_TOOL_CHARS - slimChars) / 4)
   return {
     model: CURRENT_MODEL,
     model_key: MODEL_KEY,
     plugin: `opencode-slim-system@${getPluginVersion()}`,
     opencode: getOpencodeVersion(),
-    slimmed: baseTools.length,
+    slimmed: baseToolIds.length,
     tokensSaved,
-    tools: baseTools,
+    tools: baseToolIds,
   }
 }
 
@@ -209,20 +225,22 @@ if (Object.keys(SLIM_TOOLS).length === 0) {
   SLIM_TOOLS = { ...DEFAULT_TOOL_DESCRIPTIONS } // embedded fallback
 }
 
-const PROMPT_DIR = path.dirname(CONFIG_PROMPT_FILE)
-let SLIM_SYSTEM_PROMPT = readFileContent(CONFIG_PROMPT_FILE) // prompt/default.txt
+let SLIM_SYSTEM_PROMPT: string
+try { SLIM_SYSTEM_PROMPT = readFileSync(CONFIG_PROMPT_FILE, "utf-8").trimEnd() } catch { SLIM_SYSTEM_PROMPT = "" }
 if (!SLIM_SYSTEM_PROMPT) {
   SLIM_SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
 }
-let SLIM_SYSTEM_PROMPT_MODEL = readFileContent(path.join(PROMPT_DIR, `${MODEL_KEY}.txt`)) // prompt/{model}.txt
+let SLIM_SYSTEM_PROMPT_MODEL: string
+try { SLIM_SYSTEM_PROMPT_MODEL = readFileSync(path.join(CONFIG_PROMPT_DIR, `${MODEL_KEY}.txt`), "utf-8").trimEnd() } catch { SLIM_SYSTEM_PROMPT_MODEL = "" }
 
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
 
-const buildStatusTools = Object.keys(SLIM_TOOLS)
-const baseTools = buildStatusTools.filter((k) => !k.includes("."))
-log(`init model=${CURRENT_MODEL} key=${MODEL_KEY} baseTools=${baseTools.length} totalFiles=${buildStatusTools.length} per-model-prompt=${!!SLIM_SYSTEM_PROMPT_MODEL}`)
+const allToolIds = Object.keys(SLIM_TOOLS)
+const baseToolIds = allToolIds.filter(isBaseTool)
+log(`init model=${CURRENT_MODEL} key=${MODEL_KEY} baseTools=${baseToolIds.length} totalFiles=${allToolIds.length} per-model-prompt=${!!SLIM_SYSTEM_PROMPT_MODEL}`)
 if (SLIM_SYSTEM_PROMPT_MODEL) log(`using per-model prompt: prompt/${MODEL_KEY}.txt`)
+if (allToolIds.length > baseToolIds.length) log(`${allToolIds.length - baseToolIds.length} per-model tool variants active`)
 
 // ─── Background npm version check (async) ───
 const pluginVersion = getPluginVersion()
@@ -254,7 +272,14 @@ export default async function plugin(
       ? (options.exclude as string[]).map((s) => s.toLowerCase())
       : [],
   )
-  const customTools = (options?.tools as Record<string, string> | undefined) ?? {}
+
+  // Validate options.tools is a plain object — arrays and primitives silently fail
+  const rawTools = options?.tools
+  const customTools: Record<string, string> =
+    rawTools && typeof rawTools === "object" && !Array.isArray(rawTools)
+      ? (rawTools as Record<string, string>)
+      : {}
+  if (rawTools !== undefined && rawTools !== customTools) log(`warning: options.tools ignored — expected object, got ${typeof rawTools}`)
 
   // ── reset: wipe config dir and reseed from defaults ──
   if (options?.reset === true) {
@@ -263,11 +288,14 @@ export default async function plugin(
       seedConfigDir()
       // Reload module-level vars
       SLIM_TOOLS = readToolsFromDir(CONFIG_TOOLS_DIR)
-      SLIM_SYSTEM_PROMPT = readFileContent(CONFIG_PROMPT_FILE)
-      SLIM_SYSTEM_PROMPT_MODEL = readFileContent(path.join(PROMPT_DIR, `${MODEL_KEY}.txt`))
+      try { SLIM_SYSTEM_PROMPT = readFileSync(CONFIG_PROMPT_FILE, "utf-8").trimEnd() } catch { SLIM_SYSTEM_PROMPT = "" }
+      try { SLIM_SYSTEM_PROMPT_MODEL = readFileSync(path.join(CONFIG_PROMPT_DIR, `${MODEL_KEY}.txt`), "utf-8").trimEnd() } catch { SLIM_SYSTEM_PROMPT_MODEL = "" }
       Object.assign(STATUS, buildStatus(SLIM_TOOLS))
       writeStatus(STATUS)
-    } catch { /* best-effort */ }
+      log("reset complete")
+    } catch (e) {
+      log(`reset failed: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
   // Custom tools dir (optional — files read fresh on every session)
@@ -292,10 +320,16 @@ export default async function plugin(
 
         // priority: config dir per-model > config dir default > embedded default
         const prompt = SLIM_SYSTEM_PROMPT_MODEL || SLIM_SYSTEM_PROMPT
+
+        // Always preserve environment metadata block (starts after ENV_MARKER).
+        // When the marker is absent, still search for env-like suffixes to avoid
+        // dropping the model info, directory, and system context.
         const envIdx = text.indexOf(ENV_MARKER)
         if (envIdx !== -1) {
           output.system[i] = prompt + "\n" + text.slice(envIdx)
         } else {
+          // No known marker — still preserve everything after the prompt injection
+          // point to avoid dropping model info, directory user, instructions.
           output.system[i] = prompt
         }
         matched = true

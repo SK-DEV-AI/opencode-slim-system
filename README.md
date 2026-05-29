@@ -168,7 +168,7 @@ These are available via `npx opencode-slim-<cmd>` when the package is installed 
 |---------|-------------|
 | `opencode-slim-export` | Export config dir as JSON. `npx opencode-slim-export > backup.json` |
 | `opencode-slim-import <file>` | Import JSON blob into config dir. `npx opencode-slim-import backup.json` |
-| `opencode-slim-dump` | Dump embedded defaults as JSON (ignores user edits). Add `--config-dir` to dump the actual config dir instead. |
+| `opencode-slim-dump` | Dump embedded defaults as JSON (ignores user edits). |
 | `opencode-slim-check` | Drift check (same as `./slim-plugin-check` in the repo) |
 
 ## Files on Disk
