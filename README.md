@@ -45,11 +45,12 @@ The server plugin writes `/tmp/opencode-slim-system.json` at startup:
 ```json
 {
   "model": "opencode/deepseek-v4-flash-free",
-  "plugin": "opencode-slim-system@2.0.4",
+  "model_key": "deepseek-v4-flash-free",
+  "plugin": "opencode-slim-system@2.0.5",
   "opencode": "1.15.12",
   "slimmed": 17,
   "tools": ["apply_patch", "bash", "edit", ...],
-  "latest_version": "2.0.4"
+  "latest_version": "2.0.5"
 }
 ```
 
@@ -91,9 +92,27 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 | `toolsDir` | `string` | Custom path to a directory of `{id}.txt` files (default: `~/.config/opencode/slim-system/tool/`) |
 | `promptFile` | `string` | Custom path to a system prompt file (default: `~/.config/opencode/slim-system/prompt/default.txt`) |
 
-**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.{model}.txt` → `toolsDir/{id}.txt` → `~/.config/opencode/slim-system/tool/{id}.txt` → embedded default → original stock
+**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.{model}.txt` → `toolsDir/{id}.txt` → config dir → embedded default → original stock
 
-The `{model}` suffix enables per-model tool descriptions. The plugin reads the model from `opencode.jsonc` (`model` field) at startup. Create files like `bash.opencode/gpt-4o.txt` for model-specific descriptions — they take priority over the generic `bash.txt`.
+**Priority chain (system prompt):** `options.prompt` → `promptFile` → config dir `prompt/{model}.txt` → config dir `prompt/default.txt` → embedded default
+
+### Per-model customization
+
+The plugin reads the current model from `opencode.jsonc` (`model` field, e.g. `opencode/deepseek-v4-flash-free`) at startup and extracts the **model key** — the short name after the last `/`:
+
+| Full model ID | Model key |
+|---|---|
+| `opencode/deepseek-v4-flash-free` | `deepseek-v4-flash-free` |
+| `opencode/claude-sonnet-4` | `claude-sonnet-4` |
+| `opencode/gpt-5.4-pro` | `gpt-5.4-pro` |
+
+This avoids path separator issues — `opencode/` as a directory prefix would create nested directories.
+
+**Per-model tool descriptions:** Create `{toolID}.{model}.txt` files. `bash.claude-sonnet-4.txt` activates when `opencode/claude-sonnet-4` is the current model. Falls back to generic `bash.txt` for all other models.
+
+**Per-model system prompts:** Create `prompt/{model}.txt` files (next to `prompt/default.txt`). `prompt/deepseek-v4-flash-free.txt` replaces the default prompt only when running that model. Models without a per-model file use the default.
+
+Only models with explicit customization are affected — no pollution, no need to override all models.
 
 ### Default config directory
 

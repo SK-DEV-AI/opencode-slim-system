@@ -68,6 +68,13 @@ function getCurrentModel(): string {
   }
 }
 
+/** Convert a full model ID (e.g. "opencode/deepseek-v4-flash-free") to a filesystem-safe key.
+ *  Strips everything before the last "/" so filenames don't create nested dirs. */
+function modelToKey(model: string): string {
+  const idx = model.lastIndexOf("/")
+  return idx >= 0 ? model.slice(idx + 1) : model
+}
+
 function readToolsFromDir(dir: string): Record<string, string> {
   const tools: Record<string, string> = {}
   if (!existsSync(dir)) return tools
@@ -127,6 +134,7 @@ function seedConfigDir() {
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
   return {
     model: CURRENT_MODEL,
+    model_key: MODEL_KEY,
     plugin: `opencode-slim-system@${getPluginVersion()}`,
     opencode: getOpencodeVersion(),
     slimmed: Object.keys(tools).length,
@@ -174,6 +182,7 @@ seedConfigDir()
 
 // Detect current model from opencode.jsonc for per-model description lookups
 const CURRENT_MODEL = getCurrentModel()
+const MODEL_KEY = modelToKey(CURRENT_MODEL) // safe for filenames (strips provider prefix)
 
 // Read from config dir (user-editable files in ~/.config/opencode/)
 let SLIM_TOOLS = readToolsFromDir(CONFIG_TOOLS_DIR)
@@ -181,10 +190,12 @@ if (Object.keys(SLIM_TOOLS).length === 0) {
   SLIM_TOOLS = { ...DEFAULT_TOOL_DESCRIPTIONS } // embedded fallback
 }
 
-let SLIM_SYSTEM_PROMPT = readFileContent(CONFIG_PROMPT_FILE)
+const PROMPT_DIR = path.dirname(CONFIG_PROMPT_FILE)
+let SLIM_SYSTEM_PROMPT = readFileContent(CONFIG_PROMPT_FILE) // prompt/default.txt
 if (!SLIM_SYSTEM_PROMPT) {
   SLIM_SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
 }
+let SLIM_SYSTEM_PROMPT_MODEL = readFileContent(path.join(PROMPT_DIR, `${MODEL_KEY}.txt`)) // prompt/{model}.txt
 
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
@@ -228,6 +239,7 @@ export default async function plugin(
       // Reload module-level vars
       SLIM_TOOLS = readToolsFromDir(CONFIG_TOOLS_DIR)
       SLIM_SYSTEM_PROMPT = readFileContent(CONFIG_PROMPT_FILE)
+      SLIM_SYSTEM_PROMPT_MODEL = readFileContent(path.join(PROMPT_DIR, `${MODEL_KEY}.txt`))
       Object.assign(STATUS, buildStatus(SLIM_TOOLS))
       writeStatus(STATUS)
     } catch { /* best-effort */ }
@@ -261,8 +273,8 @@ export default async function plugin(
         const isDefault = DEFAULT_PROMPT_MARKERS.some((m) => text.includes(m))
         if (!isDefault) continue
 
-        // priority: inline > promptFile > config dir > embedded default
-        const prompt = customPrompt || fsPrompt || SLIM_SYSTEM_PROMPT
+        // priority: inline > promptFile > config dir per-model > config dir default > embedded default
+        const prompt = customPrompt || fsPrompt || SLIM_SYSTEM_PROMPT_MODEL || SLIM_SYSTEM_PROMPT
         const envIdx = text.indexOf(ENV_MARKER)
         if (envIdx !== -1) {
           output.system[i] = prompt + "\n" + text.slice(envIdx)
@@ -278,7 +290,8 @@ export default async function plugin(
       // Model is detected from opencode.jsonc at module init (see getCurrentModel).
       //
       // priority: inline > toolsDir/{id}.{model}.txt > toolsDir/{id}.txt > config dir > embedded default > stock
-      const modelKey = `${input.toolID}.${CURRENT_MODEL}`
+      // model key = short name (strips provider prefix like "opencode/") so filenames don't create nested dirs.
+      const modelKey = `${input.toolID}.${MODEL_KEY}`
       const desc = customTools[input.toolID] ?? fsTools[modelKey] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
       if (desc) {
         output.description = desc
