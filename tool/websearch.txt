@@ -1,3 +1,4 @@
 Search the public web.
-Use for time-sensitive information, current events, or documentation not in the workspace.
-Supports configurable result count and live crawling modes.
+Use for time-sensitive info, current events, or docs not in the workspace.
+Supports live crawling (fallback/preferred), search types (auto/fast/deep), domain filter.
+Current year: {{year}}. MUST use this year when searching — e.g. 2026 not 2025.

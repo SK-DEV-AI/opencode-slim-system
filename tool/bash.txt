@@ -1,6 +1,5 @@
-Execute a command in a persistent shell.
-Default CWD is the session worktree; use workdir, not cd chains.
-Output truncates after ~2000 lines / 50KB — use Read or Grep on written-to temp file for full output.
-Prefer Glob, Grep, Read, Edit, Write over cat, find, grep, sed in bash.
-Never alter commit history (amend, force-push, hard reset). Never commit secrets.
-Use the first user-provided SSH key for git push.
+Shell: ${os} ${shell}. CWD: session worktree; use workdir param, not cd.
+Output ≤~2K lines/50KB — Read/Grep temp-file for full. Prefer Glob,Grep,Read,Edit,Write over cat,find,grep,sed.
+git: no amend/force-push/hard-reset/empty-commit/-i flags. No secrets. No Task/TodoWrite during commit.
+GitHub URL → gh CLI. Ask before unclear intent. Use first user-provided SSH key.
+Placeholders set by opencode: ${os} ${shell} ${chaining} ${maxLines} ${maxBytes} ${directory}
