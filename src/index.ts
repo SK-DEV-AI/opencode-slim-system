@@ -1,12 +1,15 @@
 import type { Hooks } from "@opencode-ai/plugin"
 import { readSlimSystemPrompt, readSlimToolDescriptions } from "./read-content"
-import { readFileSync, writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { execSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import os from "node:os"
+import { env } from "node:process"
 
 const PLUGIN_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const STATUS_FILE = "/tmp/opencode-slim-system.json"
+const CACHE_DIR = path.join(os.homedir(), ".local", "state", "opencode-slim-system")
 // Internal tools that fire the hook but we don't slim
 const SKIP_TOOL_IDS = new Set(["invalid"])
 
@@ -27,7 +30,17 @@ function getOpencodeVersion(): string {
   }
 }
 
-function buildStatus(tools: Record<string, string>): { plugin: string; opencode: string; slimmed: number; tools: string[]; missing: string[] } {
+function semverGt(a: string, b: string): boolean {
+  const pa = a.split(".").map(Number)
+  const pb = b.split(".").map(Number)
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return true
+    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false
+  }
+  return false
+}
+
+function buildStatus(tools: Record<string, string>): Record<string, unknown> {
   return {
     plugin: `opencode-slim-system@${getPluginVersion()}`,
     opencode: getOpencodeVersion(),
@@ -41,29 +54,56 @@ function writeStatus(s: Record<string, unknown>) {
   try { writeFileSync(STATUS_FILE, JSON.stringify(s, null, 2)) } catch { /* best-effort */ }
 }
 
-function initSlimPrompt(): string {
+async function checkLatestVersion(): Promise<string | undefined> {
   try {
-    return readSlimSystemPrompt()
+    const response = await fetch("https://registry.npmjs.org/opencode-slim-system", {
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) return undefined
+    const data = (await response.json()) as { "dist-tags"?: { latest?: string } }
+    return data?.["dist-tags"]?.latest
   } catch {
-    console.warn("[opencode-slim-system] prompt/default.txt not found")
-    return ""
+    return undefined
   }
 }
 
-function initSlimTools(): Record<string, string> {
+function loadAnnouncedVersion(): string | undefined {
   try {
-    return readSlimToolDescriptions()
+    const file = path.join(CACHE_DIR, "announced.json")
+    if (!existsSync(file)) return undefined
+    return JSON.parse(readFileSync(file, "utf-8")).version
   } catch {
-    console.warn("[opencode-slim-system] tool/ directory not found")
-    return {}
+    return undefined
   }
 }
+
+function saveAnnouncedVersion(version: string) {
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true })
+    writeFileSync(path.join(CACHE_DIR, "announced.json"), JSON.stringify({ version }))
+  } catch { /* best-effort */ }
+}
+
+// ─── Module init (sync) ───
 
 const SLIM_SYSTEM_PROMPT = initSlimPrompt()
 const SLIM_TOOLS = initSlimTools()
-// Don't call initSlimTools() again — reuse SLIM_TOOLS
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
+
+// ─── Background npm version check (async) ───
+// Updates STATUS and rewrites the status file once the check completes.
+// TUI polls the file every 5s so the update info appears without a restart.
+const pluginVersion = getPluginVersion()
+checkLatestVersion().then((latest) => {
+  if (latest && semverGt(latest, pluginVersion)) {
+    STATUS.latest_version = latest
+    STATUS.update_available = true
+  } else {
+    STATUS.latest_version = latest ?? pluginVersion
+  }
+  writeStatus(STATUS)
+})
 
 const ENV_MARKER = "You are powered by the model named"
 const DEFAULT_PROMPT_MARKERS = [
