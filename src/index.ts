@@ -132,13 +132,14 @@ function seedConfigDir() {
 }
 
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
+  const baseTools = Object.keys(tools).filter((k) => !k.includes("."))
   return {
     model: CURRENT_MODEL,
     model_key: MODEL_KEY,
     plugin: `opencode-slim-system@${getPluginVersion()}`,
     opencode: getOpencodeVersion(),
-    slimmed: Object.keys(tools).length,
-    tools: Object.keys(tools),
+    slimmed: baseTools.length,
+    tools: baseTools,
   }
 }
 
