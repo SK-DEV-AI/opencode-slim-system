@@ -5,13 +5,10 @@ import { execSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import os from "node:os"
-import { env } from "node:process"
 
 const PLUGIN_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const STATUS_FILE = "/tmp/opencode-slim-system.json"
 const CACHE_DIR = path.join(os.homedir(), ".local", "state", "opencode-slim-system")
-// Internal tools that fire the hook but we don't slim
-const SKIP_TOOL_IDS = new Set(["invalid"])
 
 function getPluginVersion(): string {
   try {
@@ -46,7 +43,6 @@ function buildStatus(tools: Record<string, string>): Record<string, unknown> {
     opencode: getOpencodeVersion(),
     slimmed: Object.keys(tools).length,
     tools: Object.keys(tools),
-    missing: [],
   }
 }
 
@@ -135,11 +131,6 @@ export default async function plugin(): Promise<Hooks> {
       const slim = SLIM_TOOLS[input.toolID]
       if (slim) {
         output.description = slim
-      } else if (!SKIP_TOOL_IDS.has(input.toolID)) {
-        if (!STATUS.missing.includes(input.toolID)) {
-          STATUS.missing.push(input.toolID)
-          writeStatus(STATUS)
-        }
       }
     },
   }

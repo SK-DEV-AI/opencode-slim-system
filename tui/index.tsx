@@ -112,17 +112,7 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
         </box>
       )}
 
-      {/* Missing tools — only shown when non-empty */}
-      {(s()?.missing?.length ?? 0) > 0 && (
-        <box width="100%" flexDirection="row" justifyContent="space-between">
-          <text fg={props.theme.warning}>
-            ⚠ Uncovered tools
-          </text>
-          <text fg={props.theme.warning}>
-            {s()!.missing.length}
-          </text>
-        </box>
-      )}
+      {/* Missing tools omitted — those are other plugins' tools, not ours */}
 
       {/* Not loaded indicator */}
       {!s() && (
@@ -160,12 +150,10 @@ const tui: TuiPlugin = async (api, _options, _meta) => {
   // Show startup toast
   const status = readStatus()
   if (status) {
-    const missing = status.missing?.length ?? 0
-    const suffix = missing > 0 ? `, ⚠ ${missing} uncovered` : ""
     api.ui.toast({
       title: status.plugin ?? "opencode-slim-system",
-      message: `${status.slimmed} tool descriptions slimmed` + suffix,
-      variant: missing > 0 ? "warning" : "success",
+      message: `${status.slimmed} tool descriptions slimmed`,
+      variant: "success",
       duration: 4000,
     })
 
