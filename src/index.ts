@@ -1,8 +1,26 @@
 import type { Hooks } from "@opencode-ai/plugin"
 import { readSlimSystemPrompt, readSlimToolDescriptions } from "./read-content"
 
-const SLIM_SYSTEM_PROMPT = readSlimSystemPrompt()
-const SLIM_TOOLS = readSlimToolDescriptions()
+function initSlimPrompt(): string {
+  try {
+    return readSlimSystemPrompt()
+  } catch {
+    console.warn("[opencode-slim-system] prompt/default.txt not found — falling through to default prompt")
+    return ""
+  }
+}
+
+function initSlimTools(): Record<string, string> {
+  try {
+    return readSlimToolDescriptions()
+  } catch {
+    console.warn("[opencode-slim-system] tool/ directory not found — using default tool descriptions")
+    return {}
+  }
+}
+
+const SLIM_SYSTEM_PROMPT = initSlimPrompt()
+const SLIM_TOOLS = initSlimTools()
 
 const ENV_MARKER = "You are powered by the model named"
 const DEFAULT_PROMPT_MARKERS = [
