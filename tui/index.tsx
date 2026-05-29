@@ -112,14 +112,6 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
         </box>
       )}
 
-      {/* Missing built-in tools — only counts opencode built-in tools without slim descriptions */}
-      {(s()?.missing?.length ?? 0) > 0 && (
-        <box width="100%" flexDirection="row" justifyContent="space-between">
-          <text fg={props.theme.warning}>Missing slim</text>
-          <text fg={props.theme.warning}>{s()!.missing.length}</text>
-        </box>
-      )}
-
       {/* Not loaded indicator */}
       {!s() && (
         <text fg={props.theme.textMuted}>plugin not loaded</text>
