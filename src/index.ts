@@ -229,7 +229,6 @@ export default async function plugin(
     Array.isArray(options?.exclude) ? (options.exclude as string[]) : [],
   )
   const customTools = (options?.tools as Record<string, string> | undefined) ?? {}
-  const customPrompt = typeof options?.prompt === "string" ? options.prompt : ""
 
   // ── reset: wipe config dir and reseed from defaults ──
   if (options?.reset === true) {
@@ -245,26 +244,17 @@ export default async function plugin(
     } catch { /* best-effort */ }
   }
 
-  // Resolve paths with tilde expansion (Node's fs doesn't expand ~)
+  // Custom tools dir (optional — files read fresh on every session)
   const toolsDir = typeof options?.toolsDir === "string" ? resolveTilde(options.toolsDir) : CONFIG_TOOLS_DIR
-  const promptFile = typeof options?.promptFile === "string" ? resolveTilde(options.promptFile) : CONFIG_PROMPT_FILE
 
-  // Auto-seed custom paths if they don't exist
+  // Auto-seed custom tools dir if it doesn't exist
   if (toolsDir !== CONFIG_TOOLS_DIR && !existsSync(toolsDir)) {
     try {
       writeDirFromMap(toolsDir, DEFAULT_TOOL_DESCRIPTIONS)
     } catch { /* best-effort */ }
   }
-  if (promptFile !== CONFIG_PROMPT_FILE && !existsSync(promptFile)) {
-    try {
-      mkdirSync(path.dirname(promptFile), { recursive: true })
-      writeFileSync(promptFile, DEFAULT_SYSTEM_PROMPT + "\n")
-    } catch { /* best-effort */ }
-  }
 
-  // Read from filesystem (overrides config dir or module-level SLIM_TOOLS)
   const fsTools = readToolsFromDir(toolsDir)
-  const fsPrompt = readFileContent(promptFile)
 
   return {
     "experimental.chat.system.transform": async (_input, output) => {
@@ -273,8 +263,8 @@ export default async function plugin(
         const isDefault = DEFAULT_PROMPT_MARKERS.some((m) => text.includes(m))
         if (!isDefault) continue
 
-        // priority: inline > promptFile > config dir per-model > config dir default > embedded default
-        const prompt = customPrompt || fsPrompt || SLIM_SYSTEM_PROMPT_MODEL || SLIM_SYSTEM_PROMPT
+        // priority: config dir per-model > config dir default > embedded default
+        const prompt = SLIM_SYSTEM_PROMPT_MODEL || SLIM_SYSTEM_PROMPT
         const envIdx = text.indexOf(ENV_MARKER)
         if (envIdx !== -1) {
           output.system[i] = prompt + "\n" + text.slice(envIdx)

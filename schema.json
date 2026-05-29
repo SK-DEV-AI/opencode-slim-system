@@ -15,16 +15,8 @@
       "type": "object",
       "additionalProperties": { "type": "string" }
     },
-    "prompt": {
-      "description": "Inline system prompt override. Takes precedence over promptFile and the config dir.",
-      "type": "string"
-    },
     "toolsDir": {
       "description": "Custom path to a directory of {id}.txt tool description files. Default: ~/.config/opencode/slim-system/tool/",
-      "type": "string"
-    },
-    "promptFile": {
-      "description": "Custom path to a system prompt text file. Default: ~/.config/opencode/slim-system/prompt/default.txt",
       "type": "string"
     },
     "reset": {

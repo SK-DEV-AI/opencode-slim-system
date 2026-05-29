@@ -72,10 +72,7 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
   "plugin": [
     ["opencode-slim-system", {
       "exclude": ["websearch"],
-      // Note: Node's fs doesn't expand ~ — use absolute or relative paths.
-      // For home-relative, use the env var ${HOME}/.config/...
-      "toolsDir": "/home/user/.config/opencode/slim-tools/",
-      "promptFile": "/home/user/.config/opencode/my-prompt.txt"
+      "toolsDir": "/home/user/.config/opencode/slim-tools/"
     }]
   ]
 }
@@ -88,13 +85,11 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 | `reset` | `boolean` | When true, wipes the config directory and reseeds from embedded defaults on next restart |
 | `exclude` | `string[]` | Tool IDs to keep at original stock descriptions |
 | `tools` | `Record<string, string>` | Inline description overrides for **any** tool ID (built-in or plugin) |
-| `prompt` | `string` | Inline system prompt override |
 | `toolsDir` | `string` | Custom path to a directory of `{id}.txt` files (default: `~/.config/opencode/slim-system/tool/`) |
-| `promptFile` | `string` | Custom path to a system prompt file (default: `~/.config/opencode/slim-system/prompt/default.txt`) |
 
 **Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.{model}.txt` → `toolsDir/{id}.txt` → config dir → embedded default → original stock
 
-**Priority chain (system prompt):** `options.prompt` → `promptFile` → config dir `prompt/{model}.txt` → config dir `prompt/default.txt` → embedded default
+**Priority chain (system prompt):** config dir `prompt/{model}.txt` → config dir `prompt/default.txt` → embedded default
 
 ### Per-model customization
 
@@ -126,7 +121,7 @@ No config needed — just add the plugin to your `opencode.jsonc`:
 
 On first run, the plugin creates `~/.config/opencode/slim-system/tool/` and `~/.config/opencode/slim-system/prompt/default.txt` with all slim descriptions. Files live outside the npm cache and survive updates. Edit any file — changes apply on next restart.
 
-Use `toolsDir` and `promptFile` only if you want the files somewhere else.
+Use `toolsDir` only if you want the tool files somewhere else.
 
 ## Customization
 
