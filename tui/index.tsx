@@ -109,6 +109,14 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
         </box>
       )}
 
+      {/* Token savings estimate per request */}
+      {s()?.tokensSaved && (
+        <box width="100%" flexDirection="row" justifyContent="space-between">
+          <text fg={props.theme.textMuted}>Tokens saved/req</text>
+          <text fg={props.theme.success}>~{s()!.tokensSaved}</text>
+        </box>
+      )}
+
       {/* Update available indicator */}
       {s()?.update_available && (
         <box width="100%" flexDirection="row" justifyContent="space-between">
@@ -142,7 +150,10 @@ const tui: TuiPlugin = async (api, _options, _meta) => {
 
   // Listen for the server plugin to write a fresh status file, then toast once.
   // The server and TUI load in separate processes so we can't rely on ordering.
+  let pollCount = 0
+  const MAX_POLL = 30 // 30s timeout before giving up
   const poll = setInterval(() => {
+    if (++pollCount > MAX_POLL) { clearInterval(poll); return }
     const status = readStatus()
     if (!status) return
     clearInterval(poll)

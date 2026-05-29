@@ -51,7 +51,7 @@ fi
 [[ -n "$EXTRA" ]]  && echo "✗ EXTRA (remove):" && echo "$EXTRA" | sed 's/^/  /'
 
 if [[ "${1:-}" == "--diff" ]]; then
-  LANGS="apply_patch bash edit glob grep lsp plan_exit question read repo_clone repo_overview skill task todowrite webfetch websearch write"
+  LANGS=$(echo "$TOOL_IDS" | xargs)
   echo "---"
   echo "# 1. Update TOOL_IDS in this script if new tools were added"
   echo "# 2. Create/remove .txt files:"

@@ -136,14 +136,20 @@ function seedConfigDir() {
   }
 }
 
+// Pre-compute stock tool description character total for token savings estimate
+const STOCK_TOOL_CHARS = Object.values(DEFAULT_TOOL_DESCRIPTIONS).reduce((sum, t) => sum + t.length, 0)
+
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
   const baseTools = Object.keys(tools).filter((k) => !k.includes("."))
+  const slimChars = baseTools.reduce((sum, k) => sum + (tools[k]?.length ?? 0), 0)
+  const tokensSaved = Math.round((STOCK_TOOL_CHARS - slimChars) / 3.5)
   return {
     model: CURRENT_MODEL,
     model_key: MODEL_KEY,
     plugin: `opencode-slim-system@${getPluginVersion()}`,
     opencode: getOpencodeVersion(),
     slimmed: baseTools.length,
+    tokensSaved,
     tools: baseTools,
   }
 }
@@ -206,7 +212,9 @@ let SLIM_SYSTEM_PROMPT_MODEL = readFileContent(path.join(PROMPT_DIR, `${MODEL_KE
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
 
-log(`init model=${CURRENT_MODEL} key=${MODEL_KEY} tools=${Object.keys(SLIM_TOOLS).length} per-model-prompt=${!!SLIM_SYSTEM_PROMPT_MODEL}`)
+const buildStatusTools = Object.keys(SLIM_TOOLS)
+const baseTools = buildStatusTools.filter((k) => !k.includes("."))
+log(`init model=${CURRENT_MODEL} key=${MODEL_KEY} baseTools=${baseTools.length} totalFiles=${buildStatusTools.length} per-model-prompt=${!!SLIM_SYSTEM_PROMPT_MODEL}`)
 if (SLIM_SYSTEM_PROMPT_MODEL) log(`using per-model prompt: prompt/${MODEL_KEY}.txt`)
 
 // ─── Background npm version check (async) ───
@@ -235,7 +243,9 @@ export default async function plugin(
   options?: import("@opencode-ai/plugin").PluginOptions,
 ): Promise<Hooks> {
   const exclude = new Set<string>(
-    Array.isArray(options?.exclude) ? (options.exclude as string[]) : [],
+    Array.isArray(options?.exclude)
+      ? (options.exclude as string[]).map((s) => s.toLowerCase())
+      : [],
   )
   const customTools = (options?.tools as Record<string, string> | undefined) ?? {}
 
