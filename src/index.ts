@@ -136,13 +136,20 @@ function seedConfigDir() {
   }
 }
 
-// Pre-compute stock tool description character total for token savings estimate
-const STOCK_TOOL_CHARS = Object.values(DEFAULT_TOOL_DESCRIPTIONS).reduce((sum, t) => sum + t.length, 0)
+// Stock (original opencode) tool description character totals for token savings estimate.
+// Measured from opencode v1.15.12 stock tool description files (17 registered tools):
+//   apply_patch 1098, edit 1369, glob 545, grep 689, lsp 1303,
+//   plan_exit 579, question 657, read 1158, repo_clone 465, repo_overview 367,
+//   shell/shell 1269, skill 399, task 2079, todowrite 2012, webfetch 750,
+//   websearch 1033, write 623
+// Total: 16,395 chars (before per-model/server/plugin additions).
+// We use a fixed ~4:1 chars/token ratio for estimate accuracy.
+const STOCK_TOOL_CHARS = 16395
 
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
   const baseTools = Object.keys(tools).filter((k) => !k.includes("."))
   const slimChars = baseTools.reduce((sum, k) => sum + (tools[k]?.length ?? 0), 0)
-  const tokensSaved = Math.round((STOCK_TOOL_CHARS - slimChars) / 3.5)
+  const tokensSaved = Math.round((STOCK_TOOL_CHARS - slimChars) / 4)
   return {
     model: CURRENT_MODEL,
     model_key: MODEL_KEY,
