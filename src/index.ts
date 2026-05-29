@@ -1,5 +1,5 @@
 import type { Hooks } from "@opencode-ai/plugin"
-import { readSlimSystemPrompt, readSlimToolDescriptions } from "./read-content"
+import { DEFAULT_TOOL_DESCRIPTIONS, DEFAULT_SYSTEM_PROMPT } from "./defaults"
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs"
 import { execSync } from "node:child_process"
 import path from "node:path"
@@ -9,6 +9,9 @@ import os from "node:os"
 const PLUGIN_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const STATUS_FILE = "/tmp/opencode-slim-system.json"
 const CACHE_DIR = path.join(os.homedir(), ".local", "state", "opencode-slim-system")
+const CONFIG_DIR = path.join(os.homedir(), ".config", "opencode", "slim-system")
+const CONFIG_TOOLS_DIR = path.join(CONFIG_DIR, "tool")
+const CONFIG_PROMPT_FILE = path.join(CONFIG_DIR, "prompt", "default.txt")
 
 function getPluginVersion(): string {
   try {
@@ -35,6 +38,39 @@ function semverGt(a: string, b: string): boolean {
     if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false
   }
   return false
+}
+
+function readToolsFromDir(dir: string): Record<string, string> {
+  const tools: Record<string, string> = {}
+  if (!existsSync(dir)) return tools
+  try {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".txt")) continue
+      tools[name.slice(0, -4)] = readFileSync(path.join(dir, name), "utf-8").trimEnd()
+    }
+  } catch { /* best-effort */ }
+  return tools
+}
+
+function readFileContent(fp: string): string {
+  try { return readFileSync(fp, "utf-8").trimEnd() } catch { return "" }
+}
+
+function seedConfigDir() {
+  if (!existsSync(CONFIG_TOOLS_DIR)) {
+    try {
+      mkdirSync(CONFIG_TOOLS_DIR, { recursive: true })
+      for (const [id, content] of Object.entries(DEFAULT_TOOL_DESCRIPTIONS)) {
+        writeFileSync(path.join(CONFIG_TOOLS_DIR, `${id}.txt`), content + "\n")
+      }
+    } catch { /* best-effort */ }
+  }
+  if (!existsSync(CONFIG_PROMPT_FILE)) {
+    try {
+      mkdirSync(path.dirname(CONFIG_PROMPT_FILE), { recursive: true })
+      writeFileSync(CONFIG_PROMPT_FILE, DEFAULT_SYSTEM_PROMPT + "\n")
+    } catch { /* best-effort */ }
+  }
 }
 
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
@@ -82,14 +118,24 @@ function saveAnnouncedVersion(version: string) {
 
 // ─── Module init (sync) ───
 
-const SLIM_SYSTEM_PROMPT = readSlimSystemPrompt()
-const SLIM_TOOLS = readSlimToolDescriptions()
+// Seed ~/.config/opencode/slim-system/ from embedded defaults on first run
+seedConfigDir()
+
+// Read from config dir (user-editable files in ~/.config/opencode/)
+let SLIM_TOOLS = readToolsFromDir(CONFIG_TOOLS_DIR)
+if (Object.keys(SLIM_TOOLS).length === 0) {
+  SLIM_TOOLS = { ...DEFAULT_TOOL_DESCRIPTIONS } // embedded fallback
+}
+
+let SLIM_SYSTEM_PROMPT = readFileContent(CONFIG_PROMPT_FILE)
+if (!SLIM_SYSTEM_PROMPT) {
+  SLIM_SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
+}
+
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
 
 // ─── Background npm version check (async) ───
-// Updates STATUS and rewrites the status file once the check completes.
-// TUI polls the file every 5s so the update info appears without a restart.
 const pluginVersion = getPluginVersion()
 checkLatestVersion().then((latest) => {
   if (latest && semverGt(latest, pluginVersion)) {
@@ -120,51 +166,29 @@ export default async function plugin(
   const customTools = (options?.tools as Record<string, string> | undefined) ?? {}
   const customPrompt = typeof options?.prompt === "string" ? options.prompt : ""
 
-  // Load from user-specified filesystem paths (survive npm updates)
-  const toolsDir = typeof options?.toolsDir === "string" ? options.toolsDir : ""
-  const promptFile = typeof options?.promptFile === "string" ? options.promptFile : ""
+  // Resolve paths: default to ~/.config/opencode/slim-system/, override via config
+  const toolsDir = typeof options?.toolsDir === "string" ? options.toolsDir : CONFIG_TOOLS_DIR
+  const promptFile = typeof options?.promptFile === "string" ? options.promptFile : CONFIG_PROMPT_FILE
 
-  // Seed user's toolsDir with bundled defaults if it doesn't exist yet.
-  // This gives them editable starting material that survives npm updates.
-  if (toolsDir && !existsSync(toolsDir)) {
+  // Auto-seed custom paths if they don't exist
+  if (toolsDir !== CONFIG_TOOLS_DIR && !existsSync(toolsDir)) {
     try {
       mkdirSync(toolsDir, { recursive: true })
-      for (const [id, content] of Object.entries(SLIM_TOOLS)) {
+      for (const [id, content] of Object.entries(DEFAULT_TOOL_DESCRIPTIONS)) {
         writeFileSync(path.join(toolsDir, `${id}.txt`), content + "\n")
       }
     } catch { /* best-effort */ }
   }
-
-  const fsTools: Record<string, string> = {}
-  if (toolsDir) {
-    try {
-      const files = readdirSync(toolsDir)
-      for (const f of files) {
-        if (f.endsWith(".txt")) {
-          fsTools[f.slice(0, -4)] = readFileSync(path.join(toolsDir, f), "utf-8")
-        }
-      }
-    } catch {
-      // best-effort — invalid path logs nothing
-    }
-  }
-
-  // Seed user's promptFile with bundled default if it doesn't exist
-  if (promptFile && !existsSync(promptFile)) {
+  if (promptFile !== CONFIG_PROMPT_FILE && !existsSync(promptFile)) {
     try {
       mkdirSync(path.dirname(promptFile), { recursive: true })
-      writeFileSync(promptFile, SLIM_SYSTEM_PROMPT + "\n")
+      writeFileSync(promptFile, DEFAULT_SYSTEM_PROMPT + "\n")
     } catch { /* best-effort */ }
   }
 
-  let fsPrompt = ""
-  if (promptFile) {
-    try {
-      fsPrompt = readFileSync(promptFile, "utf-8")
-    } catch {
-      // best-effort
-    }
-  }
+  // Read from filesystem (overrides config dir or module-level SLIM_TOOLS)
+  const fsTools = readToolsFromDir(toolsDir)
+  const fsPrompt = readFileContent(promptFile)
 
   return {
     "experimental.chat.system.transform": async (_input, output) => {
@@ -173,7 +197,7 @@ export default async function plugin(
         const isDefault = DEFAULT_PROMPT_MARKERS.some((m) => text.includes(m))
         if (!isDefault) continue
 
-        // priority: inline > promptFile > bundled
+        // priority: inline > promptFile > config dir > embedded default
         const prompt = customPrompt || fsPrompt || SLIM_SYSTEM_PROMPT
         const envIdx = text.indexOf(ENV_MARKER)
         if (envIdx !== -1) {
@@ -186,7 +210,7 @@ export default async function plugin(
 
     "tool.definition": async (input, output) => {
       if (exclude.has(input.toolID)) return
-      // priority: inline > toolsDir/*.txt > bundled
+      // priority: inline > toolsDir/*.txt > config dir > embedded default > stock
       const desc = customTools[input.toolID] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
       if (desc) {
         output.description = desc

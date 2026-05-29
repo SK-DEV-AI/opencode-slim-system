@@ -10,11 +10,11 @@ Two plugin hooks:
 
 ### `tool.definition`
 
-Fires once per tool per session. If the tool ID matches a slim description file in `tool/{id}.txt`, replaces the stock description with the slim version. All 17 built-in OpenCode tools (v1.15.x) are covered (some are conditional on experimental flags). Non-built-in tools (from plugins like Magic Context, PTY, AFT) are left untouched.
+Fires once per tool per session. If the tool ID has a slim description in `~/.config/opencode/slim-system/tool/{id}.txt`, replaces the stock description with the slim version. All 17 built-in OpenCode tools (v1.15.x) are covered (some are conditional on experimental flags). Non-built-in tools (from plugins like Magic Context, PTY, AFT) are left untouched.
 
 ### `experimental.chat.system.transform`
 
-Fires when the system prompt is constructed. If the prompt looks like a bundled default (detected by markers like "best coding agent on the planet"), replaces it with the content of `prompt/default.txt`. The environment block (model info, working directory, date) is preserved.
+Fires when the system prompt is constructed. If the prompt looks like a bundled default (detected by markers like "best coding agent on the planet"), replaces it with the content of `~/.config/opencode/slim-system/prompt/default.txt`. The environment block (model info, working directory, date) is preserved.
 
 **Why a plugin hook is necessary:** OpenCode's prompts are compiled into the binary as static imports (`packages/opencode/src/session/system.ts` — model matching chooses one of `anthropic.txt`, `beast.txt`, `gpt.txt`, `gemini.txt`, `codex.txt`, `trinity.txt`, `kimi.txt`, or `default.txt`). There is no built-in filesystem override — the `~/.config/opencode/prompt/` feature proposed in PR #7264 was closed without merging. The plugin hook is the **only** way to replace the system prompt for models that don't match Claude/GPT patterns.
 
@@ -70,10 +70,8 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
   "plugin": [
     ["opencode-slim-system", {
       "exclude": ["websearch"],
-      "tools": {
-        "bash": "Run shell commands with full interactive PTY support."
-      },
-      "prompt": "You are opencode, an interactive CLI tool..."
+      "toolsDir": "~/.config/opencode/slim-tools/",
+      "promptFile": "~/.config/opencode/my-prompt.txt"
     }]
   ]
 }
@@ -86,47 +84,38 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 | `exclude` | `string[]` | Tool IDs to keep at original stock descriptions |
 | `tools` | `Record<string, string>` | Inline description overrides for **any** tool ID (built-in or plugin) |
 | `prompt` | `string` | Inline system prompt override |
-| `toolsDir` | `string` | Path to a directory of `{id}.txt` files — same format as shipped `tool/`. Read at plugin start, survives npm updates. |
-| `promptFile` | `string` | Path to a `default.txt`-format system prompt file. Read at plugin start, survives npm updates. |
+| `toolsDir` | `string` | Custom path to a directory of `{id}.txt` files (default: `~/.config/opencode/slim-system/tool/`) |
+| `promptFile` | `string` | Custom path to a system prompt file (default: `~/.config/opencode/slim-system/prompt/default.txt`) |
 
-**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.txt` → shipped `tool/{id}.txt` → original stock
+**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.txt` → `~/.config/opencode/slim-system/tool/{id}.txt` → original stock
 
-**Priority chain (prompt):** `options.prompt` → `promptFile` → shipped `prompt/default.txt`
+**Priority chain (prompt):** `options.prompt` → `promptFile` → `~/.config/opencode/slim-system/prompt/default.txt`
 
-Inline options (`tools`/`prompt`) win over files, files win over bundled, bundled wins over original stock. Helps keep long text in real files instead of JSON.
+### Default config directory
 
-Use `toolsDir` and `promptFile` when your descriptions are too long for inline JSON. Both paths are absolute or relative to the opencode working directory.
+No config needed — just add the plugin to your `opencode.jsonc`:
 
-### Auto-seeding
+```jsonc
+{
+  "plugin": ["opencode-slim-system"]
+}
+```
 
-If `toolsDir` points to a directory that doesn't exist yet, the plugin creates it on first run and copies all bundled `tool/*.txt` files into it as editable starting material. Same for `promptFile` — if the file doesn't exist, the bundled prompt is written there.
+On first run, the plugin creates `~/.config/opencode/slim-system/tool/` and `~/.config/opencode/slim-system/prompt/default.txt` with all slim descriptions. Files live outside the npm cache and survive updates. Edit any file — changes apply on next restart.
 
-Your copies take priority over the bundled ones (per the priority chain) and survive npm updates since they're outside the npm cache. Any tool you don't edit keeps the slim description you already know.
+Use `toolsDir` and `promptFile` only if you want the files somewhere else.
 
 ## Customization
 
 ### System Prompt
 
-Edit `prompt/default.txt` in the npm package:
-
-```
-~/.cache/opencode/packages/opencode-slim-system@latest/
-  node_modules/opencode-slim-system/
-    prompt/default.txt     ← edit this
-    tool/{id}.txt          ← edit tool descriptions
-```
-
-After editing, clear the cache and restart for changes to take effect:
-
-```bash
-rm -rf ~/.cache/opencode/packages/opencode-slim-system@latest
-```
-
-**Note:** The cache persists across restarts — `rm -rf` is required every time you edit the shipped files. For persistent customization, fork this repo, publish your own npm package, and register it instead.
+Edit `~/.config/opencode/slim-system/prompt/default.txt` and restart OpenCode. Changes persist across npm updates.
 
 ### Tool Descriptions
 
-Each `tool/{id}.txt` file corresponds to a tool ID from OpenCode's registry. Edit the file to change what the model sees as that tool's description. Placeholders (`${os}`, `${shell}`, `${directory}`, etc.) are preserved from the original descriptions.
+Edit any `*.txt` file in `~/.config/opencode/slim-system/tool/`. Each file corresponds to a tool ID from OpenCode's registry. Restart OpenCode to apply changes. Placeholders (`${os}`, `${shell}`, `${directory}`, etc.) are preserved from the original descriptions.
+
+No npm cache clearance needed — files are read fresh on every session. To reset a file to default, delete it and restart; the plugin re-creates it from its embedded defaults.
 
 ## Drift Detection
 
@@ -155,6 +144,8 @@ No polling — the npm check runs once at startup with a 5-second timeout.
 
 | Path | Purpose |
 |------|---------|
+| `~/.config/opencode/slim-system/tool/` | User-editable slim tool descriptions (auto-seeded) |
+| `~/.config/opencode/slim-system/prompt/default.txt` | User-editable slim system prompt (auto-seeded) |
 | `/tmp/opencode-slim-system.json` | Runtime status (ephemeral) |
 | `~/.local/state/opencode-slim-system/announced.json` | Last announced update version |
 | `~/.cache/opencode/packages/opencode-slim-system@latest/` | Cached npm package |
@@ -191,10 +182,9 @@ Restart OpenCode. On first TUI load you'll see a toast confirming the plugin loa
 
 ## Limitations
 
-- **`slimmed` count is shipped files, not runtime coverage** — The sidebar shows all 17 shipped description files. Actual tools slimmed depends on your experimental flags (`lsp`, `plan_exit`, `repo_clone`, etc. are conditional). For users without those flags enabled, the real count is ~14-15. The TUI always shows the larger number.
+- **`slimmed` count is config dir files, not runtime coverage** — The sidebar shows all 17 files in `~/.config/opencode/slim-system/tool/`. Actual tools slimmed depends on your experimental flags (`lsp`, `plan_exit`, `repo_clone`, etc. are conditional). For users without those flags enabled, the real count is ~14-15. The TUI always shows the larger number.
 - **Drift detection requires repo clone** — The plugin no longer attempts to track missing tool descriptions (too many false positives from plugin tools). Clone the repo and run `./slim-plugin-check --diff` after an OpenCode update to see if new built-in tools need slim descriptions.
 - **System prompt replacement uses marker heuristics** — The hook looks for strings like "best coding agent on the planet" to identify stock prompts. Custom prompts (agents with custom `.md` files) are not touched.
-- **npm cache is sticky** — OpenCode never re-fetches a cached npm package. Clear `~/.cache/opencode/packages/opencode-slim-system@latest/` to force a fresh download.
 
 ## Architecture
 

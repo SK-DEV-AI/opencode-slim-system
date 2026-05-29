@@ -37,8 +37,6 @@
   "files": [
     "src",
     "tui",
-    "prompt",
-    "tool",
     "README.md"
   ],
   "engines": {
