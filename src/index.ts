@@ -82,8 +82,8 @@ function saveAnnouncedVersion(version: string) {
 
 // ─── Module init (sync) ───
 
-const SLIM_SYSTEM_PROMPT = initSlimPrompt()
-const SLIM_TOOLS = initSlimTools()
+const SLIM_SYSTEM_PROMPT = readSlimSystemPrompt()
+const SLIM_TOOLS = readSlimToolDescriptions()
 const STATUS = buildStatus(SLIM_TOOLS)
 writeStatus(STATUS)
 
@@ -131,12 +131,6 @@ export default async function plugin(): Promise<Hooks> {
       const slim = SLIM_TOOLS[input.toolID]
       if (slim) {
         output.description = slim
-      } else if (isBuiltinTool(input.toolID)) {
-        // Track built-in tools we don't have slim descriptions for
-        if (!STATUS.missing.includes(input.toolID)) {
-          STATUS.missing.push(input.toolID)
-          writeStatus(STATUS)
-        }
       }
     },
   }
