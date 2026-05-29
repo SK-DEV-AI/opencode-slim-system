@@ -16,7 +16,16 @@ Fires once per tool per session. If the tool ID matches a slim description file 
 
 Fires when the system prompt is constructed. If the prompt looks like a bundled default (detected by markers like "best coding agent on the planet"), replaces the identity/behavior section with the content of `prompt/default.txt`. The environment block (model info, working directory, date) is preserved.
 
-**Why a plugin hook?** OpenCode's bundled prompts are compiled into the binary as static imports. PR #7264 (which proposed `~/.config/opencode/prompt/` auto-loading) was never merged. The only way to replace the system prompt for non-Claude/non-GPT models is via this plugin hook.
+**Two separate `default.txt` files exist, don't confuse them:**
+
+| File | Purpose | Managed by |
+|------|---------|------------|
+| `prompt/default.txt` in this repo/npm package | Bundled slim prompt used by the plugin hook for all users | This plugin's `experimental.chat.system.transform` hook |
+| `~/.config/opencode/prompt/default.txt` | User's personal override for their own machine | User, outside this plugin |
+
+The personal override at `~/.config/opencode/prompt/` is a separate opencode feature (PR #7264, compiled-in binary behavior). This plugin does not touch it — it reads its own bundled `prompt/default.txt` relative to the npm package.
+
+**Why a plugin hook at all?** The prompt directory override only works for models whose identifiers match GPT/Claude patterns. For all other models (deepseek-v4-flash-free, big-pickle, etc.), the bundled prompt is compiled into the binary as a static import with no filesystem override. The plugin hook is the only way to replace the system prompt for those models.
 
 ## What's Included
 
