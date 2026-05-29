@@ -145,9 +145,14 @@ const tui: TuiPlugin = async (api, _options, _meta) => {
   // Register sidebar slot
   api.slots.register(createSlimSidebarSlot(api))
 
-  // Show startup toast
-  const status = readStatus()
-  if (status) {
+  // Wait 1s for the server plugin to write a fresh status file, then read it.
+  // This avoids showing stale data from a previous session (the server and TUI
+  // load in separate processes and we can't control ordering).
+  setTimeout(() => {
+    const status = readStatus()
+    if (!status) return
+
+    // Startup toast
     api.ui.toast({
       title: status.plugin ?? "opencode-slim-system",
       message: `${status.slimmed} tool descriptions slimmed`,
@@ -155,13 +160,13 @@ const tui: TuiPlugin = async (api, _options, _meta) => {
       duration: 4000,
     })
 
-    // Check for update announcement (fire-and-forget after a short delay so dialog renders cleanly)
+    // Update announcement dialog
     if (status.update_available && status.latest_version) {
       setTimeout(() => {
         void showUpdateDialog(api, status)
       }, 1500)
     }
-  }
+  }, 1000)
 }
 
 export default {
