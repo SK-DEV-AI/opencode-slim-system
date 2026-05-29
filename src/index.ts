@@ -1,6 +1,6 @@
 import type { Hooks } from "@opencode-ai/plugin"
 import { readSlimSystemPrompt, readSlimToolDescriptions } from "./read-content"
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs"
 import { execSync } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -120,6 +120,33 @@ export default async function plugin(
   const customTools = (options?.tools as Record<string, string> | undefined) ?? {}
   const customPrompt = typeof options?.prompt === "string" ? options.prompt : ""
 
+  // Load from user-specified filesystem paths (survive npm updates)
+  const toolsDir = typeof options?.toolsDir === "string" ? options.toolsDir : ""
+  const promptFile = typeof options?.promptFile === "string" ? options.promptFile : ""
+
+  const fsTools: Record<string, string> = {}
+  if (toolsDir) {
+    try {
+      const files = readdirSync(toolsDir)
+      for (const f of files) {
+        if (f.endsWith(".txt")) {
+          fsTools[f.slice(0, -4)] = readFileSync(path.join(toolsDir, f), "utf-8")
+        }
+      }
+    } catch {
+      // best-effort — invalid path logs nothing
+    }
+  }
+
+  let fsPrompt = ""
+  if (promptFile) {
+    try {
+      fsPrompt = readFileSync(promptFile, "utf-8")
+    } catch {
+      // best-effort
+    }
+  }
+
   return {
     "experimental.chat.system.transform": async (_input, output) => {
       for (let i = 0; i < output.system.length; i++) {
@@ -127,7 +154,8 @@ export default async function plugin(
         const isDefault = DEFAULT_PROMPT_MARKERS.some((m) => text.includes(m))
         if (!isDefault) continue
 
-        const prompt = customPrompt || SLIM_SYSTEM_PROMPT
+        // priority: inline > promptFile > bundled
+        const prompt = customPrompt || fsPrompt || SLIM_SYSTEM_PROMPT
         const envIdx = text.indexOf(ENV_MARKER)
         if (envIdx !== -1) {
           output.system[i] = prompt + "\n" + text.slice(envIdx)
@@ -139,7 +167,8 @@ export default async function plugin(
 
     "tool.definition": async (input, output) => {
       if (exclude.has(input.toolID)) return
-      const desc = customTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
+      // priority: inline > toolsDir/*.txt > bundled
+      const desc = customTools[input.toolID] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
       if (desc) {
         output.description = desc
       }

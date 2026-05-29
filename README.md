@@ -84,12 +84,18 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 | Key | Type | Description |
 |-----|------|-------------|
 | `exclude` | `string[]` | Tool IDs to keep at original stock descriptions |
-| `tools` | `Record<string, string>` | Description overrides for **any** tool ID (built-in or plugin — e.g., `aft_search`, `ctx_memory`, `pty_spawn`). Takes priority over shipped files and plugin stock descriptions. |
-| `prompt` | `string` | Full system prompt override (takes priority over bundled `prompt/default.txt`) |
+| `tools` | `Record<string, string>` | Inline description overrides for **any** tool ID (built-in or plugin) |
+| `prompt` | `string` | Inline system prompt override |
+| `toolsDir` | `string` | Path to a directory of `{id}.txt` files — same format as shipped `tool/`. Read at plugin start, survives npm updates. |
+| `promptFile` | `string` | Path to a `default.txt`-format system prompt file. Read at plugin start, survives npm updates. |
 
-Priority chain: `options.tools[toolID]` → shipped `tool/{id}.txt` → original opencode description. Same for prompt: `options.prompt` → shipped `prompt/default.txt`.
+**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.txt` → shipped `tool/{id}.txt` → original stock
 
-This means you can keep custom descriptions in your `opencode.jsonc` that survive npm updates — no need to edit files in the npm cache.
+**Priority chain (prompt):** `options.prompt` → `promptFile` → shipped `prompt/default.txt`
+
+Inline options (`tools`/`prompt`) win over files, files win over bundled, bundled wins over original stock. Helps keep long text in real files instead of JSON.
+
+Use `toolsDir` and `promptFile` when your descriptions are too long for inline JSON. Both paths are absolute or relative to the opencode working directory.
 
 ## Customization
 
