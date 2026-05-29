@@ -61,6 +61,22 @@ sidebar updates and a startup toast fires once.
 within 1-2 seconds). If a newer version exists, `update_available: true` is
 also written to the file and the sidebar shows an ⬆ indicator.
 
+## Configuration
+
+Plugin options are set via the array syntax in `opencode.jsonc`:
+
+```jsonc
+{
+  "plugin": [
+    ["opencode-slim-system", { "exclude": ["websearch", "webfetch"] }]
+  ]
+}
+```
+
+### `exclude` (optional)
+
+Array of tool IDs to keep at their original stock descriptions. Useful if you prefer the full description for specific tools (e.g., `read`, `websearch`). All other built-in tools are slimmed.
+
 ## Customization
 
 ### System Prompt

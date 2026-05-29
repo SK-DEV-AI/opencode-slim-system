@@ -110,7 +110,14 @@ const DEFAULT_PROMPT_MARKERS = [
   "interactive general AI agent",
 ]
 
-export default async function plugin(): Promise<Hooks> {
+export default async function plugin(
+  _input: import("@opencode-ai/plugin").PluginInput,
+  options?: import("@opencode-ai/plugin").PluginOptions,
+): Promise<Hooks> {
+  const exclude = new Set<string>(
+    Array.isArray(options?.exclude) ? (options.exclude as string[]) : [],
+  )
+
   return {
     "experimental.chat.system.transform": async (_input, output) => {
       for (let i = 0; i < output.system.length; i++) {
@@ -128,6 +135,7 @@ export default async function plugin(): Promise<Hooks> {
     },
 
     "tool.definition": async (input, output) => {
+      if (exclude.has(input.toolID)) return
       const slim = SLIM_TOOLS[input.toolID]
       if (slim) {
         output.description = slim
