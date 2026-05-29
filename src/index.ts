@@ -45,6 +45,29 @@ function resolveTilde(p: string): string {
   return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : p
 }
 
+/** Read the current model from opencode.jsonc (handles JSONC comments properly). */
+function getCurrentModel(): string {
+  try {
+    const configPath = path.join(os.homedir(), ".config", "opencode", "opencode.jsonc")
+    const raw = readFileSync(configPath, "utf-8")
+    // Strip block comments /* ... */
+    let cleaned = raw.replace(/\/\*[\s\S]*?\*\//g, "")
+    // Strip // comments outside of strings (character-by-character to handle URLs in quotes)
+    const lines = cleaned.split("\n")
+    cleaned = lines.map((line) => {
+      let inString = false
+      for (let i = 0; i < line.length - 1; i++) {
+        if (line[i] === '"' && (i === 0 || line[i - 1] !== "\\")) inString = !inString
+        if (!inString && line[i] === "/" && line[i + 1] === "/") return line.slice(0, i)
+      }
+      return line
+    }).join("\n")
+    return JSON.parse(cleaned).model ?? "unknown"
+  } catch {
+    return "unknown"
+  }
+}
+
 function readToolsFromDir(dir: string): Record<string, string> {
   const tools: Record<string, string> = {}
   if (!existsSync(dir)) return tools
@@ -103,6 +126,7 @@ function seedConfigDir() {
 
 function buildStatus(tools: Record<string, string>): Record<string, unknown> {
   return {
+    model: CURRENT_MODEL,
     plugin: `opencode-slim-system@${getPluginVersion()}`,
     opencode: getOpencodeVersion(),
     slimmed: Object.keys(tools).length,
@@ -147,6 +171,9 @@ function saveAnnouncedVersion(version: string) {
 // ─── Module init (sync) ───
 
 seedConfigDir()
+
+// Detect current model from opencode.jsonc for per-model description lookups
+const CURRENT_MODEL = getCurrentModel()
 
 // Read from config dir (user-editable files in ~/.config/opencode/)
 let SLIM_TOOLS = readToolsFromDir(CONFIG_TOOLS_DIR)
@@ -247,12 +274,12 @@ export default async function plugin(
 
     "tool.definition": async (input, output) => {
       if (exclude.has(input.toolID)) return
-      // Per-model tool descriptions ({id}.{model}.txt) are not possible here because
-      // ToolDefinitionInput only contains toolID — the plugin API provides no model info
-      // at this hook. If opencode adds it in the future, we can branch here.
+      // Per-model: check {toolID}.{model}.txt first, fall back to {toolID}.txt
+      // Model is detected from opencode.jsonc at module init (see getCurrentModel).
       //
-      // priority: inline > toolsDir/*.txt > config dir > embedded default > stock
-      const desc = customTools[input.toolID] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
+      // priority: inline > toolsDir/{id}.{model}.txt > toolsDir/{id}.txt > config dir > embedded default > stock
+      const modelKey = `${input.toolID}.${CURRENT_MODEL}`
+      const desc = customTools[input.toolID] ?? fsTools[modelKey] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
       if (desc) {
         output.description = desc
       }

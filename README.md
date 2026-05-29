@@ -44,11 +44,12 @@ The server plugin writes `/tmp/opencode-slim-system.json` at startup:
 
 ```json
 {
-  "plugin": "opencode-slim-system@1.1.6",
+  "model": "opencode/deepseek-v4-flash-free",
+  "plugin": "opencode-slim-system@2.0.4",
   "opencode": "1.15.12",
   "slimmed": 17,
   "tools": ["apply_patch", "bash", "edit", ...],
-  "latest_version": "1.1.6"
+  "latest_version": "2.0.4"
 }
 ```
 
@@ -90,9 +91,9 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 | `toolsDir` | `string` | Custom path to a directory of `{id}.txt` files (default: `~/.config/opencode/slim-system/tool/`) |
 | `promptFile` | `string` | Custom path to a system prompt file (default: `~/.config/opencode/slim-system/prompt/default.txt`) |
 
-**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.txt` → `~/.config/opencode/slim-system/tool/{id}.txt` → original stock
+**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.{model}.txt` → `toolsDir/{id}.txt` → `~/.config/opencode/slim-system/tool/{id}.txt` → embedded default → original stock
 
-**Priority chain (prompt):** `options.prompt` → `promptFile` → `~/.config/opencode/slim-system/prompt/default.txt`
+The `{model}` suffix enables per-model tool descriptions. The plugin reads the model from `opencode.jsonc` (`model` field) at startup. Create files like `bash.opencode/gpt-4o.txt` for model-specific descriptions — they take priority over the generic `bash.txt`.
 
 ### Default config directory
 
