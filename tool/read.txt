@@ -1,0 +1,5 @@
+Read a file or list a directory.
+Returns `N: content` (line number, colon, space). Never include the `N: ` prefix when feeding text into Edit.
+Use offset/limit for large files. Single lines over 2000 chars are truncated.
+Use Glob or Grep first if you don't know the path.
+Supports images and PDFs as attachments (metadata only for images, text for PDFs).

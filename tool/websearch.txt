@@ -1,0 +1,3 @@
+Search the public web.
+Use for time-sensitive information, current events, or documentation not in the workspace.
+Supports configurable result count and live crawling modes.

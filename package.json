@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "opencode-slim-system",
+  "version": "1.0.0",
+  "description": "Slim OpenCode system prompt and built-in tool descriptions to reduce per-request token overhead. Plugs into the tool.definition and experimental.chat.system.transform hooks.",
+  "type": "module",
+  "license": "MIT",
+  "author": "SK",
+  "keywords": ["opencode", "opencode-plugin", "slim", "prompt", "tokens", "tool-descriptions"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SK-DEV-AI/opencode-slim-system.git"
+  },
+  "bugs": { "url": "https://github.com/SK-DEV-AI/opencode-slim-system/issues" },
+  "homepage": "https://github.com/SK-DEV-AI/opencode-slim-system#readme",
+  "exports": {
+    ".": { "types": "./src/index.ts", "default": "./src/index.ts" }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": ["src", "prompt", "tool", "README.md"],
+  "engines": { "node": ">=18" },
+  "peerDependencies": { "@opencode-ai/plugin": ">=1.0.0" },
+  "peerDependenciesMeta": {
+    "@opencode-ai/plugin": { "optional": true }
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.14.20"
+  }
+}

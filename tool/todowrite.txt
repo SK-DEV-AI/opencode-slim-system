@@ -1,0 +1,4 @@
+Replace the session todo list in one shot.
+Use for tasks with 3+ meaningful steps. Each todo: content, status, priority.
+Statuses: pending, in_progress, completed, cancelled. Priorities: high, medium, low.
+Keep exactly one item in_progress at a time.

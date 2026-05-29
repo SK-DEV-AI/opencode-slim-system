@@ -1,0 +1,15 @@
+Apply file changes via opencode's patch format.
+
+Wrap in:
+  *** Begin Patch
+  …file sections…
+  *** End Patch
+
+Each section header:
+- `*** Add File: path` — body is +-prefixed initial contents.
+- `*** Delete File: path` — no body.
+- `*** Update File: path` — body is hunks. Optionally `*** Move to: new-path`.
+  Hunks: `@@ context` starts. ` ` unchanged, `-` removed, `+` added.
+  `*** End of File` closes a hunk to EOF.
+
+Paths are relative to project root.

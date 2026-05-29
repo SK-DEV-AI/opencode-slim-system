@@ -1,0 +1,4 @@
+Create or overwrite a file. Creates parent directories automatically.
+If the path already exists, Read it first or the tool errors.
+Prefer Edit for small changes to existing files.
+Do not create documentation or README files unless the user explicitly asks.

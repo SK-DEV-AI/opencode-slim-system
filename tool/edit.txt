@@ -1,0 +1,5 @@
+Replace oldString with newString in one file.
+You must Read the file first.
+oldString must appear exactly once unless replaceAll is set.
+Never include Read's `N: ` line-number prefix in oldString or newString.
+Prefer Edit over Write for small changes to existing files.

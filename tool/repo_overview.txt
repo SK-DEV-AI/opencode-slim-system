@@ -1,0 +1,3 @@
+Summarize structure and entrypoints of a cloned repo or local directory.
+Reports detected ecosystems, dependency files, package manager, and a compact structure tree.
+Use after repo_clone to orient before deeper investigation.
