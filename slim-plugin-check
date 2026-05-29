@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Check opencode-slim-plugin tool descriptions match current opencode version.
+# Compares against known tool IDs from opencode's registry.ts.
+# When opencode adds/removes tools, update TOOL_IDS below.
+# Usage: slim-plugin-check [--diff]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_DIR="$SCRIPT_DIR/tool"
+PKG="$SCRIPT_DIR/package.json"
+OPCODE_VER=$(opencode --version 2>/dev/null || echo "unknown")
+PLUGIN_VER=$(jq -r '.version' "$PKG" 2>/dev/null || echo "unknown")
+echo "opencode: $OPCODE_VER | slim-system: $PLUGIN_VER"
+
+# All tool IDs that have descriptions (from v1.15.12 registry.ts).
+# shell is embedded in code — we handle it via bash.txt.
+# plan_exit has description file — we use underscore matching Tool.define() ID.
+TOOL_IDS="
+apply_patch
+bash
+edit
+glob
+grep
+lsp
+plan_exit
+question
+read
+repo_clone
+repo_overview
+skill
+task
+todowrite
+webfetch
+websearch
+write
+"
+
+REMOTE=$(echo "$TOOL_IDS" | grep -v '^$' | sort -u)
+LOCAL=$(cd "$PLUGIN_DIR" && ls *.txt 2>/dev/null | sed 's/\.txt$//' | sort -u)
+
+MISSING=$(comm -23 <(echo "$REMOTE") <(echo "$LOCAL"))
+EXTRA=$(comm -13 <(echo "$REMOTE") <(echo "$LOCAL"))
+
+if [[ -z "$MISSING" && -z "$EXTRA" ]]; then
+  echo "✓ All 17 tool descriptions match opencode $OPCODE_VER"
+  exit 0
+fi
+
+[[ -n "$MISSING" ]] && echo "✗ MISSING (add):" && echo "$MISSING" | sed 's/^/  /'
+[[ -n "$EXTRA" ]]  && echo "✗ EXTRA (remove):" && echo "$EXTRA" | sed 's/^/  /'
+
+if [[ "${1:-}" == "--diff" ]]; then
+  LANGS="apply_patch bash edit glob grep lsp plan_exit question read repo_clone repo_overview skill task todowrite webfetch websearch write"
+  echo "---"
+  echo "# 1. Update TOOL_IDS in this script if new tools were added"
+  echo "# 2. Create/remove .txt files:"
+  while IFS= read -r id; do
+    echo "  > \"$PLUGIN_DIR/$id.txt\" (write slim description)"
+  done <<< "$MISSING"
+  while IFS= read -r id; do
+    echo "  rm \"$PLUGIN_DIR/$id.txt\""
+  done <<< "$EXTRA"
+  echo "# 3. Publish:"
+  echo "  cd $SCRIPT_DIR && git add -A && git commit -m \"chore: sync tool descriptions for opencode v$OPCODE_VER\" && npm version patch && npm publish"
+fi
