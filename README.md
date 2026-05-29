@@ -44,11 +44,11 @@ The server plugin writes `/tmp/opencode-slim-system.json` at startup:
 
 ```json
 {
-  "plugin": "opencode-slim-system@1.1.4",
+  "plugin": "opencode-slim-system@1.1.6",
   "opencode": "1.15.12",
   "slimmed": 17,
   "tools": ["apply_patch", "bash", "edit", ...],
-  "latest_version": "1.1.4"
+  "latest_version": "1.1.6"
 }
 ```
 

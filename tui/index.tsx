@@ -54,7 +54,7 @@ async function showUpdateDialog(api: TuiPluginApi, status: Record<string, unknow
     `Latest:  v${latest}`,
     "",
     "Update includes new features and fixes.",
-    "Visit github.com/SK-DEV-AI/opencode-slim-system/releases",
+    `Visit ${packageJson.repository?.url?.replace("git+", "").replace(".git", "") ?? "the repo"}/releases`,
     "for the changelog.",
   ].join("\n")
 
