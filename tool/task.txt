@@ -1,5 +1,4 @@
-Run a sub-agent with its own context and tool access.
-Required: subagent_type (configured agent name), short description, self-contained prompt.
-Optional task_id resumes an existing sub-session instead of starting fresh.
-The user does not see raw sub-agent output — summarize results for them.
-Launch independent sub-agents in parallel in one turn when useful.
+Spawn a sub-agent with independent context and tool access.
+Required: subagent_type, short description, self-contained prompt.
+task_id resumes an existing sub-session. User sees only your summary.
+Launch independent sub-agents in parallel in one turn.

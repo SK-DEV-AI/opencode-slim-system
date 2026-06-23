@@ -153,12 +153,7 @@ function seedConfigDir() {
 }
 
 // Stock (original opencode) tool description character totals for token savings estimate.
-// Measured from opencode v1.15.12 stock tool description files (17 registered tools):
-//   apply_patch 1098, edit 1369, glob 545, grep 689, lsp 1303,
-//   plan_exit 579, question 657, read 1158, repo_clone 465, repo_overview 367,
-//   shell/shell 1269, skill 399, task 2079, todowrite 2012, webfetch 750,
-//   websearch 1033, write 623
-// Total: 16,395 chars (before per-model/server/plugin additions).
+// Measured from opencode v1.17.9 stock tool description files (17 registered tools).
 // We use a fixed ~4:1 chars/token ratio for estimate accuracy.
 const STOCK_TOOL_CHARS = 16395
 
@@ -347,11 +342,6 @@ export default async function plugin(
 
     "tool.definition": async (input, output) => {
       if (exclude.has(input.toolID)) return
-      // Per-model: check {toolID}.{model}.txt first, fall back to {toolID}.txt
-      // Model is detected from opencode.jsonc at module init (see getCurrentModel).
-      //
-      // priority: inline > toolsDir/{id}.{model}.txt > toolsDir/{id}.txt > config dir > embedded default > stock
-      // model key = short name (strips provider prefix like "opencode/") so filenames don't create nested dirs.
       const modelKey = `${input.toolID}.${MODEL_KEY}`
       const isPerModel = customTools[input.toolID] ? false : fsTools[modelKey] ? true : false
       const desc = customTools[input.toolID] ?? fsTools[modelKey] ?? fsTools[input.toolID] ?? SLIM_TOOLS[input.toolID]
@@ -359,6 +349,11 @@ export default async function plugin(
         output.description = desc
         if (isPerModel) log(`tool=${input.toolID} per-model=${modelKey}`)
       }
+    },
+
+    // Ensure compaction summaries retain awareness of slimmed system prompt
+    "experimental.session.compacting": async (_input, output) => {
+      output.context.push(`Plugin active: opencode-slim-system (${baseToolIds.length} tools slimmed, custom system prompt active)`)
     },
   }
 }

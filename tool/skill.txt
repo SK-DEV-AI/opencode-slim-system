@@ -1,2 +1,2 @@
-Load a skill by name from available_skills.
-Pulls the skill's instructions and resources into the session on demand.
+Load a skill by name from the session's available_skills list.
+Injects skill instructions and resources into the active session.

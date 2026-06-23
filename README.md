@@ -10,7 +10,7 @@ Two plugin hooks:
 
 ### `tool.definition`
 
-Fires once per tool per session. If the tool ID has a slim description in `~/.config/opencode/slim-system/tool/{id}.txt`, replaces the stock description with the slim version. All 17 built-in OpenCode tools (v1.15.x) are covered (some are conditional on experimental flags). Non-built-in tools (from plugins like Magic Context, PTY, AFT) are left untouched.
+Fires once per tool per session. If the tool ID has a slim description in `~/.config/opencode/slim-system/tool/{id}.txt`, replaces the stock description with the slim version. All 17 built-in OpenCode tools (v1.17.x) are covered (some are conditional on experimental flags). Non-built-in tools (from plugins like Magic Context, PTY, AFT) are left untouched.
 
 ### `experimental.chat.system.transform`
 

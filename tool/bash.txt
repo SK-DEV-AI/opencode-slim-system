@@ -1,5 +1,7 @@
-Shell: ${os} ${shell}. CWD: session worktree; use workdir param, not cd.
-Output ≤~2K lines/50KB — Read/Grep temp-file for full. Prefer Glob,Grep,Read,Edit,Write over cat,find,grep,sed.
-git: no amend/force-push/hard-reset/empty-commit/-i flags. No secrets. No Task/TodoWrite during commit.
-GitHub URL → gh CLI. Ask before unclear intent. Use first user-provided SSH key.
-Placeholders set by opencode: ${os} ${shell} ${chaining} ${maxLines} ${maxBytes} ${directory}
+Shell: ${os} ${shell}. CWD: session worktree — use workdir param, not cd.
+Output capped at ~2K lines/50KB — use Read/Grep for full output.
+Prefer Glob,Grep,Read,Edit,Write over shell utils.
+git: no amend/force-push/hard-reset/empty-commit/-i. No secrets.
+GitHub URL → gh CLI. SSH key sourced from agent.
+PTY tasks available via { background: true, pty: true }.
+Placeholders: ${os} ${shell} ${chaining} ${maxLines} ${maxBytes} ${directory}

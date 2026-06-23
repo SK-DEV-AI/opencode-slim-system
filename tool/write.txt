@@ -1,4 +1,4 @@
 Create or overwrite a file. Creates parent dirs automatically.
-If existing, must Read first or tool errors.
-Prefer Edit for small changes. NEVER create new files unless explicitly required.
-No README/doc files unless the user asks. No emojis in files unless asked.
+Existing files must be Read first. Prefer Edit for small changes.
+NEVER create files unless explicitly required or helpful.
+No README/docs unless asked. No emojis in code files.
