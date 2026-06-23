@@ -5,6 +5,7 @@ import os from "node:os"
 import { coerce, gt } from "semver"
 import { DEFAULT_TOOL_DESCRIPTIONS, DEFAULT_SYSTEM_PROMPT } from "../src/defaults.js"
 import { PLACEHOLDERS, BASE_TOOL_IDS } from "../src/constants.js"
+import { parseModelFromFile } from "../src/index.js"
 
 // ─── Helper unit tests (no disk I/O) ───
 
@@ -239,7 +240,7 @@ describe("writeDirFromMap", () => {
   })
 })
 
-describe("getCurrentModel", () => {
+describe("parseModelFromFile", () => {
   const testDir = path.join(os.tmpdir(), "slim-test-model")
   const configDir = path.join(testDir, ".config", "opencode")
   const configFile = path.join(configDir, "opencode.jsonc")
@@ -253,54 +254,25 @@ describe("getCurrentModel", () => {
     rmSync(testDir, { recursive: true, force: true })
   })
 
-  it("parses model from opencode.jsonc", () => {
+  it("parses model from clean JSON", () => {
     writeFileSync(configFile, JSON.stringify({ model: "opencode/test-model" }))
-    const raw = readFileSync(configFile, "utf-8")
-    const cleaned = raw.replace(/\/\*[\s\S]*?\*\//g, "")
-    const lines = cleaned.split("\n")
-    let model = "unknown"
-    for (const line of lines) {
-      const noComment = line.replace(/\/\/.*$/, "")
-      const match = noComment.match(/"model"\s*:\s*"([^"]+)"/)
-      if (match) { model = match[1] ?? "unknown"; break }
-    }
-    expect(model).toBe("opencode/test-model")
+    expect(parseModelFromFile(configFile)).toBe("opencode/test-model")
   })
 
   it("parses model from jsonc with comments", () => {
-    const jsoncContent = [
-      '{',
-      '  // comment line',
-      '  "model": "opencode/claude-sonnet-4",',
-      '  /* block comment */',
-      '  "other": "value"',
-      '}',
-    ].join("\n")
-    writeFileSync(configFile, jsoncContent)
-    const raw = readFileSync(configFile, "utf-8")
-    const cleaned = raw.replace(/\/\*[\s\S]*?\*\//g, "")
-    const lines = cleaned.split("\n")
-    let model = "unknown"
-    for (const line of lines) {
-      const noComment = line.replace(/\/\/.*$/, "")
-      const match = noComment.match(/"model"\s*:\s*"([^"]+)"/)
-      if (match) { model = match[1] ?? "unknown"; break }
-    }
-    expect(model).toBe("opencode/claude-sonnet-4")
+    writeFileSync(configFile, [
+      '{', '  // comment line', '  "model": "opencode/claude-sonnet-4",', '  /* block comment */', '  "other": "value"', '}',
+    ].join("\n"))
+    expect(parseModelFromFile(configFile)).toBe("opencode/claude-sonnet-4")
   })
 
   it("returns unknown when no model field", () => {
     writeFileSync(configFile, JSON.stringify({ version: "1.0" }))
-    const raw = readFileSync(configFile, "utf-8")
-    const cleaned = raw.replace(/\/\*[\s\S]*?\*\//g, "")
-    const lines = cleaned.split("\n")
-    let model = "unknown"
-    for (const line of lines) {
-      const noComment = line.replace(/\/\/.*$/, "")
-      const match = noComment.match(/"model"\s*:\s*"([^"]+)"/)
-      if (match) { model = match[1] ?? "unknown"; break }
-    }
-    expect(model).toBe("unknown")
+    expect(parseModelFromFile(configFile)).toBe("unknown")
+  })
+
+  it("returns unknown for nonexistent file", () => {
+    expect(parseModelFromFile("/nonexistent/path")).toBe("unknown")
   })
 })
 

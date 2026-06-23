@@ -239,9 +239,8 @@ export default async function plugin(
   }
 }
 
-function getCurrentModel(): string {
+export function parseModelFromFile(configPath: string): string {
   try {
-    const configPath = path.join(process.env.HOME ?? "", ".config", "opencode", "opencode.jsonc")
     const raw = readFileSync(configPath, "utf-8")
     const cleaned = raw.replace(/\/\*[\s\S]*?\*\//g, "")
     const lines = cleaned.split("\n")
@@ -254,6 +253,10 @@ function getCurrentModel(): string {
   } catch {
     return "unknown"
   }
+}
+
+function getCurrentModel(): string {
+  return parseModelFromFile(path.join(process.env.HOME ?? "", ".config", "opencode", "opencode.jsonc"))
 }
 
 async function checkLatestVersion(): Promise<string | undefined> {
