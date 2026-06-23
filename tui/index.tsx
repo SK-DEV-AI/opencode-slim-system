@@ -1,22 +1,27 @@
 /** @jsxImportSource @opentui/solid */
-// @ts-nocheck
-import { createMemo, createSignal, onCleanup } from "solid-js"
+import { createMemo, createSignal, onCleanup, onMount } from "solid-js"
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import path from "node:path"
-import os from "node:os"
 import type { TuiPlugin, TuiPluginApi, TuiThemeCurrent, TuiSlotPlugin } from "@opencode-ai/plugin/tui"
-import packageJson from "../package.json"
+import packageJson from "../package.json" with { type: "json" }
+import { STATUS_FILE, CACHE_DIR } from "../src/constants.js"
 
-const STATUS_FILE = "/tmp/opencode-slim-system.json"
-const ANNOUNCED_FILE = path.join(os.homedir(), ".local", "state", "opencode-slim-system", "announced.json")
+const ANNOUNCED_FILE = path.join(CACHE_DIR, "announced.json")
 
-function readStatus() {
+interface StatusData {
+  plugin: string
+  slimmed: number
+  tokensSaved: number
+  latest_version: string
+  update_available: boolean
+  tools: string[]
+}
+
+function readStatus(): StatusData | null {
   try {
     if (!existsSync(STATUS_FILE)) return null
-    const data = JSON.parse(readFileSync(STATUS_FILE, "utf-8"))
-    // If the status file is from a different version, it's stale — ignore it.
-    // The server plugin writes a fresh one when a session starts.
-    const fileVersion = String((data.plugin as string) ?? "").split("@").pop()
+    const data = JSON.parse(readFileSync(STATUS_FILE, "utf-8")) as StatusData
+    const fileVersion = String(data.plugin ?? "").split("@").pop()
     if (fileVersion && fileVersion !== packageJson.version) return null
     return data
   } catch {
@@ -24,10 +29,10 @@ function readStatus() {
   }
 }
 
-function loadAnnouncedVersion() {
+function loadAnnouncedVersion(): string | undefined {
   try {
     if (!existsSync(ANNOUNCED_FILE)) return undefined
-    return JSON.parse(readFileSync(ANNOUNCED_FILE, "utf-8")).version
+    return (JSON.parse(readFileSync(ANNOUNCED_FILE, "utf-8")) as { version?: string }).version
   } catch {
     return undefined
   }
@@ -40,48 +45,40 @@ function saveAnnouncedVersion(version: string) {
   } catch { /* best-effort */ }
 }
 
-async function showUpdateDialog(api: TuiPluginApi, status: Record<string, unknown>) {
+async function showUpdateDialog(api: TuiPluginApi, status: StatusData) {
   const current = String(status.plugin ?? "").split("@").pop() ?? "?"
   const latest = String(status.latest_version ?? "")
   const announced = loadAnnouncedVersion()
-
-  // Already announced this version — skip
   if (announced === latest) return
 
-  const title = `Slim System v${latest} available`
-  const message = [
-    `Current: v${current}`,
-    `Latest:  v${latest}`,
-    "",
-    "Update includes new features and fixes.",
-    `Visit ${packageJson.repository?.url?.replace("git+", "").replace(".git", "") ?? "the repo"}/releases`,
-    "for the changelog.",
-  ].join("\n")
+  const repoUrl = (packageJson.repository as { url?: string })?.url?.replace("git+", "").replace(".git", "") ?? "the repo"
 
   api.ui.dialog.replace(
     () => (
       <api.ui.DialogAlert
-        title={title}
-        message={message}
+        title={`Slim System v${latest} available`}
+        message={`Current: v${current}\nLatest:  v${latest}\n\nUpdate includes new features and fixes.\nVisit ${repoUrl}/releases for the changelog.`}
         onConfirm={() => { saveAnnouncedVersion(latest) }}
       />
     ),
     () => {
-      // Dismissed via Escape — still mark so it doesn't re-prompt
       saveAnnouncedVersion(latest)
     },
   )
 }
 
 const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
-  const [status, setStatus] = createSignal(readStatus())
+  const [status, setStatus] = createSignal<StatusData | null>(readStatus())
 
-  // Poll every 5s (same as MC's RPC poller)
-  onCleanup(
-    setInterval(() => {
+  onMount(() => {
+    const interval = setInterval(() => {
       setStatus(readStatus())
-    }, 5000),
-  )
+    }, 5000)
+
+    onCleanup(() => {
+      clearInterval(interval)
+    })
+  })
 
   const s = createMemo(() => status())
 
@@ -101,7 +98,6 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
         </box>
       </box>
 
-      {/* Stat line: how many tools slimmed */}
       {s() && (
         <box width="100%" flexDirection="row" justifyContent="space-between">
           <text fg={props.theme.textMuted}>Tools slimmed</text>
@@ -109,7 +105,6 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
         </box>
       )}
 
-      {/* Token savings estimate per request */}
       {s()?.tokensSaved && (
         <box width="100%" flexDirection="row" justifyContent="space-between">
           <text fg={props.theme.textMuted}>Tokens saved/req</text>
@@ -117,7 +112,6 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
         </box>
       )}
 
-      {/* Update available indicator */}
       {s()?.update_available && (
         <box width="100%" flexDirection="row" justifyContent="space-between">
           <text fg={props.theme.warning}>Update available</text>
@@ -125,7 +119,6 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
         </box>
       )}
 
-      {/* Not loaded indicator */}
       {!s() && (
         <text fg={props.theme.textMuted}>plugin not loaded</text>
       )}
@@ -135,7 +128,7 @@ const SlimSidebar = (props: { theme: TuiThemeCurrent }) => {
 
 function createSlimSidebarSlot(api: TuiPluginApi): TuiSlotPlugin {
   return {
-    order: 899, // below MC sidebar (150), above bottom
+    order: 899,
     slots: {
       sidebar_content: (ctx, _value) => (
         <SlimSidebar theme={ctx.theme.current} />
@@ -145,13 +138,10 @@ function createSlimSidebarSlot(api: TuiPluginApi): TuiSlotPlugin {
 }
 
 const tui: TuiPlugin = async (api, _options, _meta) => {
-  // Register sidebar slot
   api.slots.register(createSlimSidebarSlot(api))
 
-  // Listen for the server plugin to write a fresh status file, then toast once.
-  // The server and TUI load in separate processes so we can't rely on ordering.
   let pollCount = 0
-  const MAX_POLL = 30 // 30s timeout before giving up
+  const MAX_POLL = 30
   const poll = setInterval(() => {
     if (++pollCount > MAX_POLL) { clearInterval(poll); return }
     const status = readStatus()
@@ -159,7 +149,7 @@ const tui: TuiPlugin = async (api, _options, _meta) => {
     clearInterval(poll)
 
     api.ui.toast({
-      title: status.plugin ?? "opcode-slim-system",
+      title: status.plugin ?? "opencode-slim-system",
       message: `${status.slimmed} tool descriptions slimmed`,
       variant: "success",
       duration: 4000,

@@ -11,9 +11,15 @@ if (!file) {
   process.exit(1)
 }
 
-const data = JSON.parse(readFileSync(file, "utf-8"))
-if (!data || typeof data !== "object") {
-  console.error("Invalid import file: expected a JSON object")
+let data
+try {
+  data = JSON.parse(readFileSync(file, "utf-8"))
+} catch (e) {
+  console.error(`Invalid JSON in ${file}: ${e instanceof Error ? e.message : String(e)}`)
+  process.exit(1)
+}
+if (!data || typeof data !== "object" || Array.isArray(data)) {
+  console.error("Invalid import file: expected a JSON object with optional 'tools' and 'prompt' keys")
   process.exit(1)
 }
 
@@ -21,16 +27,28 @@ const configDir = path.join(os.homedir(), ".config", "opencode", "slim-system")
 const toolsDir = path.join(configDir, "tool")
 const promptDir = path.join(configDir, "prompt")
 
-if (data.tools && typeof data.tools === "object") {
+let toolCount = 0
+if (data.tools && typeof data.tools === "object" && !Array.isArray(data.tools)) {
   mkdirSync(toolsDir, { recursive: true })
-  for (const [id, content] of Object.entries(data.tools as Record<string, string>)) {
-    writeFileSync(path.join(toolsDir, `${id}.txt`), (content ?? "") + "\n")
+  for (const [id, content] of Object.entries(data.tools as Record<string, unknown>)) {
+    if (typeof content !== "string") {
+      console.warn(`Skipping tool "${id}": expected string content, got ${typeof content}`)
+      continue
+    }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(id)) {
+      console.warn(`Skipping tool "${id}": invalid tool ID format`)
+      continue
+    }
+    writeFileSync(path.join(toolsDir, `${id}.txt`), content + "\n")
+    toolCount++
   }
 }
 
+let hasPrompt = false
 if (data.prompt && typeof data.prompt === "string") {
   mkdirSync(promptDir, { recursive: true })
   writeFileSync(path.join(promptDir, "default.txt"), data.prompt + "\n")
+  hasPrompt = true
 }
 
-console.log(`Imported ${data.tools ? Object.keys(data.tools).length : 0} tool descriptions and ${data.prompt ? "a" : "no"} system prompt to ${configDir}`)
+console.log(`Imported ${toolCount} tool descriptions${hasPrompt ? " and a system prompt" : ""} to ${configDir}`)

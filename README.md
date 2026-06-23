@@ -2,7 +2,7 @@
 
 Reduces per-request token overhead by replacing OpenCode's bundled system prompt and built-in tool descriptions with compact versions.
 
-Saves **~1,400 tokens/request** from the system prompt and **~8,300 tokens/request** from tool descriptions — ~9,700 total tokens saved on every request.
+Saves **~1,400 tokens/request** from the system prompt and **~9,700 tokens/request** from tool descriptions — ~11,100 total tokens saved on every request (estimated at ~4:1 chars/token ratio).
 
 ## How It Works
 

@@ -11,21 +11,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Check tool drift
         id: check
         run: |
-          output=$(./slim-plugin-check 2>&1 || true)
+          output=$(node scripts/drift-check.js 2>&1 || true)
           echo "$output"
           echo "result<<EOF" >> $GITHUB_OUTPUT
           echo "$output" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
       - name: Create issue on drift
-        if: contains(steps.check.outputs.result, '✗')
+        if: contains(steps.check.outputs.result, 'MISSING') || contains(steps.check.outputs.result, 'EXTRA')
         uses: actions/github-script@v7
         with:
           script: |
             const output = `${{ steps.check.outputs.result }}`
-            const body = `## Drift Detected\n\n\`\`\`\n${output}\n\`\`\`\n\nRun \`./slim-plugin-check --diff\` locally for add/remove/publish commands.`;
+            const body = `## Drift Detected\n\n\`\`\`\n${output}\n\`\`\``;
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,

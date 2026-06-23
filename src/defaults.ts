@@ -1,5 +1,5 @@
-// Auto-generated from tool/ and prompt/ directories. Regenerate:
-//   node /tmp/gen-defaults.js
+// Auto-generated from tool/ and prompt/ directories.
+// Regenerate: node scripts/gen-defaults.js
 
 export const DEFAULT_SYSTEM_PROMPT = `You are opencode, an interactive CLI tool that helps users with software engineering tasks.
 
@@ -20,7 +20,7 @@ Tool results and user messages may include <system-reminder> tags with useful in
 # Proactiveness
 - Read full files before modifying — understand before changing.
 - After code changes, run relevant lint/typecheck/tests.
-- NEVER commit unless explicitly asked.`;
+- NEVER commit unless explicitly asked.`
 
 export const DEFAULT_TOOL_DESCRIPTIONS: Record<string, string> = {
   "apply_patch": `Apply file changes via opencode's patch format.
@@ -88,4 +88,6 @@ Current year: {{year}}. MUST use this year in queries.`,
 Existing files must be Read first. Prefer Edit for small changes.
 NEVER create files unless explicitly required or helpful.
 No README/docs unless asked. No emojis in code files.`,
-};
+}
+
+// Tool count: 17 | Total chars: 3825 | Avg chars: 225
