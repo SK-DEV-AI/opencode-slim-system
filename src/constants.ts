@@ -45,7 +45,6 @@ export const BASE_TOOL_IDS = [
   "glob",
   "grep",
   "lsp",
-  "plan_enter",
   "plan_exit",
   "question",
   "read",

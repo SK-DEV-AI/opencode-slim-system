@@ -1,7 +1,8 @@
 Shell: ${os} ${shell}. CWD: session worktree — use workdir param, not cd.
+Use ${tmp} for temp work outside workspace. DO NOT use for file ops.
 Output capped at ~2K lines/50KB — use Read/Grep for full output.
 Prefer Glob,Grep,Read,Edit,Write over shell utils.
-git: no amend/force-push/hard-reset/empty-commit/-i. No secrets.
-GitHub URL → gh CLI. SSH key sourced from agent.
+git: inspect status/diff before commit. Stage only intended files. No amend/force-push/hard-reset/empty-commit/-i. Never commit secrets.
+GitHub URL → gh CLI. SSH key sourced from agent. Before PR: inspect diff from base branch and all commits included.
 PTY tasks available via { background: true, pty: true }.
 Placeholders: ${os} ${shell} ${chaining} ${maxLines} ${maxBytes} ${directory}

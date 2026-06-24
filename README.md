@@ -2,7 +2,7 @@
 
 Replaces OpenCode's bundled system prompt and built-in tool descriptions with compact versions to reduce per-request token overhead.
 
-Saves roughly **~3,200 tokens/request** from tool descriptions and **~1,900 tokens/request** from the system prompt — ~5,100 total (estimated at ~4:1 chars/token ratio, varies by tokenizer). Exact savings depend on your OpenCode version and model.
+Saves roughly **~3,160 tokens/request** from tool descriptions and **~1,890 tokens/request** from the system prompt — ~5,050 total (estimated at ~4:1 chars/token ratio, varies by tokenizer). Exact savings depend on your OpenCode version and model.
 
 ## How It Works
 
@@ -10,7 +10,7 @@ Two plugin hooks plus a TUI sidebar:
 
 ### `tool.definition`
 
-Replaces each built-in tool's description with a slim version from `~/.config/opencode/slim-system/tool/{id}.txt`. Covers 16 OpenCode built-in tools. Plugin and MCP tools are left untouched.
+Replaces each built-in tool's description with a slim version from `~/.config/opencode/slim-system/tool/{id}.txt`. Covers 15 OpenCode built-in tools. Plugin and MCP tools are left untouched.
 
 ### `experimental.chat.system.transform`
 
@@ -22,7 +22,7 @@ Replaces the stock system prompt with `~/.config/opencode/slim-system/prompt/def
 
 | File | Purpose |
 |------|---------|
-| `tool/*.txt` | 16 slim tool descriptions |
+| `tool/*.txt` | 15 slim tool descriptions |
 | `prompt/default.txt` | Slim system prompt (~240 tokens) |
 | `src/index.ts` | Server plugin — hooks into tool.definition and experimental.chat.system.transform |
 | `tui/index.tsx` | TUI sidebar — shows slim count, version, update indicator |
@@ -33,7 +33,7 @@ Replaces the stock system prompt with `~/.config/opencode/slim-system/prompt/def
 
 Registered at sidebar order 899. Shows:
 
-- **Tools slimmed** — count of covered built-in tools (16 on stock OpenCode)
+- **Tools slimmed** — count of covered built-in tools (15 on stock OpenCode)
 - **Token savings** — estimated per-request (approximate, labeled `~`)
 - **⬆ Update available** — when npm has a newer version
 - **plugin not loaded** — shown briefly before the server plugin writes its status file (normal)
@@ -113,10 +113,10 @@ A CI workflow (`.github/workflows/drift-check.yml`) runs weekly and opens an iss
 ## Limitations
 
 - **Token savings are approximate.** The 4:1 chars-to-token ratio varies by tokenizer. The `STOCK_TOOL_CHARS` baseline is measured from OpenCode v1.17.9 template files; newer versions may have different stock description lengths.
-- **`slimmed` count shows config dir files, not runtime coverage.** The sidebar shows 16 files in the config dir. Actual tools slimmed depends on your experimental flags (lsp, plan_enter, plan_exit are conditional; tools without those flags enabled will have stock descriptions but still count toward the 16). The real number may be 13-15 depending on your config.
+- **`slimmed` count shows config dir files, not runtime coverage.** The sidebar shows 15 files in the config dir. Actual tools slimmed depends on your experimental flags (lsp, plan_exit are conditional; tools without those flags enabled will have stock descriptions but still count toward the 15). The real number may be 13-14 depending on your config.
 - **Drift detection is a maintainer tool.** `npx opencode-slim-check` is for repo maintainers, not end users. The plugin works fine without it.
 - **System prompt replacement uses marker heuristics.** Custom prompts (agents with `.md` files) are not touched.
-- **`plan_enter`, `plan_exit`, `lsp`, `question` are conditional tools.** They only exist in the tool registry when the corresponding experimental flags are enabled. Our tool descriptions for them cover all cases, but they're not always active.
+- **`plan_exit`, `lsp`, `question` are conditional tools.** They only exist in the tool registry when the corresponding experimental flags are enabled. Our tool descriptions for them cover all cases, but they're not always active.
 
 ## Files on Disk
 

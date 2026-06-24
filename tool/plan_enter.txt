@@ -1,3 +1,0 @@
-Suggest switching to plan agent for complex tasks needing planning first.
-ALWAYS call when user mentions wanting a plan.
-Skip for simple tasks or when user wants immediate implementation.
