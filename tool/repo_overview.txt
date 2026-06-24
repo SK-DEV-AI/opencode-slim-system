@@ -1,3 +1,0 @@
-Summarize structure and entrypoints of a local repo or directory.
-Reports ecosystems, deps, package manager, and compact tree.
-Use after repo_clone to orient before deeper investigation.

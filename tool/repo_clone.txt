@@ -1,3 +1,0 @@
-Clone or refresh a repo into OpenCode's managed cache.
-Accepts git URLs, forge shorthand (owner/repo), local paths.
-Returns cached absolute path. For dependency research only.

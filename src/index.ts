@@ -118,6 +118,11 @@ function writeStatus(s: Record<string, unknown>) {
   try { writeFileSync(STATUS_FILE, JSON.stringify(s, null, 2)) } catch { /* best-effort */ }
 }
 
+// Stock tool description char count from opencode v1.17.9 template files.
+// Measured from packages/opencode/src/tool/*.txt in the opencode repo.
+// This is approximate — rendered descriptions are slightly longer due to
+// variable substitution (especially bash/shell which adds ~900 chars).
+// Update this value when the plugin is re-baselined against a newer opencode.
 const STOCK_TOOL_CHARS = 16395
 
 export default async function plugin(

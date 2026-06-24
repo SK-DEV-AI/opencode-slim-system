@@ -1,71 +1,62 @@
 # opencode-slim-system
 
-Reduces per-request token overhead by replacing OpenCode's bundled system prompt and built-in tool descriptions with compact versions.
+Replaces OpenCode's bundled system prompt and built-in tool descriptions with compact versions to reduce per-request token overhead.
 
-Saves **~1,400 tokens/request** from the system prompt and **~9,700 tokens/request** from tool descriptions — ~11,100 total tokens saved on every request (estimated at ~4:1 chars/token ratio).
+Saves roughly **~3,200 tokens/request** from tool descriptions and **~1,900 tokens/request** from the system prompt — ~5,100 total (estimated at ~4:1 chars/token ratio, varies by tokenizer). Exact savings depend on your OpenCode version and model.
 
 ## How It Works
 
-Two plugin hooks:
+Two plugin hooks plus a TUI sidebar:
 
 ### `tool.definition`
 
-Fires once per tool per session. If the tool ID has a slim description in `~/.config/opencode/slim-system/tool/{id}.txt`, replaces the stock description with the slim version. All 17 built-in OpenCode tools (v1.17.x) are covered (some are conditional on experimental flags). Non-built-in tools (from plugins like Magic Context, PTY, AFT) are left untouched.
+Replaces each built-in tool's description with a slim version from `~/.config/opencode/slim-system/tool/{id}.txt`. Covers 16 OpenCode built-in tools. Plugin and MCP tools are left untouched.
 
 ### `experimental.chat.system.transform`
 
-Fires when the system prompt is constructed. If the prompt looks like a bundled default (detected by markers like "best coding agent on the planet"), replaces it with the content of `~/.config/opencode/slim-system/prompt/default.txt`. The environment block (model info, working directory, date) is preserved.
+Replaces the stock system prompt with `~/.config/opencode/slim-system/prompt/default.txt`. Detects stock prompts by marker strings (e.g. "best coding agent on the planet"). The environment block (model info, directory, date) is preserved. Custom agent prompts without markers are not affected.
 
-**Why a plugin hook is necessary:** OpenCode's prompts are compiled into the binary as static imports (`packages/opencode/src/session/system.ts` — model matching chooses one of `anthropic.txt`, `beast.txt`, `gpt.txt`, `gemini.txt`, `codex.txt`, `trinity.txt`, `kimi.txt`, or `default.txt`). There is no built-in filesystem override — the `~/.config/opencode/prompt/` feature proposed in PR #7264 was closed without merging. The plugin hook is the **only** way to replace the system prompt for models that don't match Claude/GPT patterns.
+**Why hooks and not file overrides:** OpenCode's built-in prompts and tool descriptions are compiled into the binary. There is no filesystem override. The plugin hook is the only way to swap them.
 
 ## What's Included
 
 | File | Purpose |
 |------|---------|
-| `tool/*.txt` | 17 slim tool descriptions (one per built-in tool — some are conditional on experimental flags) |
-| `prompt/default.txt` | Slim system prompt (identity + tone, ~240 tokens) |
+| `tool/*.txt` | 16 slim tool descriptions |
+| `prompt/default.txt` | Slim system prompt (~240 tokens) |
 | `src/index.ts` | Server plugin — hooks into tool.definition and experimental.chat.system.transform |
-| `tui/index.tsx` | TUI sidebar panel — shows slim count, version, update indicator |
+| `tui/index.tsx` | TUI sidebar — shows slim count, version, update indicator |
+| `src/defaults.ts` | Embedded fallback defaults (auto-generated) |
+| `tests/core.test.ts` | 34 tests covering parsing, resolution, I/O, integrity |
 
 ## Sidebar Panel
 
 Registered at sidebar order 899. Shows:
 
-- **Tools slimmed** — count of covered built-in tools (green)
-- **⬆ Update available** — when npm has a newer version (warning color, with version number)
-- **plugin not loaded** — shown briefly before the server plugin writes its status file (normal on first load)
+- **Tools slimmed** — count of covered built-in tools (16 on stock OpenCode)
+- **Token savings** — estimated per-request (approximate, labeled `~`)
+- **⬆ Update available** — when npm has a newer version
+- **plugin not loaded** — shown briefly before the server plugin writes its status file (normal)
 - **Update dialog** — on first TUI start per version, shows current vs latest + GitHub releases link
-
-Dismissed versions are persisted to `~/.local/state/opencode-slim-system/announced.json`.
 
 ## Status File
 
-The server plugin writes `/tmp/opencode-slim-system.json` at startup:
+The server plugin writes `/tmp/opencode-slim-system.json` at startup. The TUI sidebar polls it every 5 seconds. A background npm check updates `latest_version` and `update_available` fields within 1-2 seconds.
 
-```json
-{
-  "model": "opencode/deepseek-v4-flash-free",
-  "model_key": "deepseek-v4-flash-free",
-  "plugin": "opencode-slim-system@2.0.5",
-  "opencode": "1.15.12",
-  "slimmed": 17,
-  "tools": ["apply_patch", "bash", "edit", ...],
-  "latest_version": "2.0.5"
-}
-```
+## Per-model customization
 
-The TUI sidebar polls this file every 5 seconds. It ignores stale files from a
-previous npm version (compares the embedded `plugin` version against its own
-installed version). When a fresh file appears after a session starts, the
-sidebar updates and a startup toast fires once.
+The plugin reads the current model from `opencode.jsonc` and extracts the model key (the short name after the last `/`):
 
-`latest_version` appears after the background npm check completes (usually
-within 1-2 seconds). If a newer version exists, `update_available: true` is
-also written to the file and the sidebar shows an ⬆ indicator.
+| Full model ID | Model key |
+|---|---|
+| `opencode/deepseek-v4-flash-free` | `deepseek-v4-flash-free` |
+| `opencode/claude-sonnet-4` | `claude-sonnet-4` |
+
+**Per-model tool descriptions:** Create `{toolID}.{modelKey}.txt` files. `bash.claude-sonnet-4.txt` activates when `opencode/claude-sonnet-4` is active. Falls back to `bash.txt` for all other models.
+
+**Per-model system prompts:** Create `prompt/{modelKey}.txt`. Takes precedence over `prompt/default.txt` when running that model.
 
 ## Configuration
-
-Plugin options are set via the array syntax in `opencode.jsonc`:
 
 ```jsonc
 {
@@ -82,94 +73,50 @@ Plugin options are set via the array syntax in `opencode.jsonc`:
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `reset` | `boolean` | When true, wipes the config directory and reseeds from embedded defaults on next restart |
+| `reset` | `boolean` | Wipes config directory and reseeds from embedded defaults on next restart |
 | `exclude` | `string[]` | Tool IDs to keep at original stock descriptions |
-| `tools` | `Record<string, string>` | Inline description overrides for **any** tool ID (built-in or plugin) |
-| `toolsDir` | `string` | Custom path to a directory of `{id}.txt` files (default: `~/.config/opencode/slim-system/tool/`) |
+| `tools` | `Record<string, string>` | Inline description overrides for any tool ID |
+| `toolsDir` | `string` | Custom path for `{id}.txt` files (default: `~/.config/opencode/slim-system/tool/`) |
 
-**Priority chain (tools):** `options.tools[toolID]` → `toolsDir/{id}.{model}.txt` → `toolsDir/{id}.txt` → config dir → embedded default → original stock
-
-**Priority chain (system prompt):** config dir `prompt/{model}.txt` → config dir `prompt/default.txt` → embedded default
-
-### Per-model customization
-
-The plugin reads the current model from `opencode.jsonc` (`model` field, e.g. `opencode/deepseek-v4-flash-free`) at startup and extracts the **model key** — the short name after the last `/`:
-
-| Full model ID | Model key |
-|---|---|
-| `opencode/deepseek-v4-flash-free` | `deepseek-v4-flash-free` |
-| `opencode/claude-sonnet-4` | `claude-sonnet-4` |
-| `opencode/gpt-5.4-pro` | `gpt-5.4-pro` |
-
-This avoids path separator issues — `opencode/` as a directory prefix would create nested directories.
-
-**Per-model tool descriptions:** Create `{toolID}.{model}.txt` files. `bash.claude-sonnet-4.txt` activates when `opencode/claude-sonnet-4` is the current model. Falls back to generic `bash.txt` for all other models.
-
-**Per-model system prompts:** Create `prompt/{model}.txt` files (next to `prompt/default.txt`). `prompt/deepseek-v4-flash-free.txt` replaces the default prompt only when running that model. Models without a per-model file use the default.
-
-Only models with explicit customization are affected — no pollution, no need to override all models.
-
-### Default config directory
-
-No config needed — just add the plugin to your `opencode.jsonc`:
-
-```jsonc
-{
-  "plugin": ["opencode-slim-system"]
-}
-```
-
-On first run, the plugin creates `~/.config/opencode/slim-system/tool/` and `~/.config/opencode/slim-system/prompt/default.txt` with all slim descriptions. Files live outside the npm cache and survive updates. Edit any file — changes apply on next restart.
-
-Use `toolsDir` only if you want the tool files somewhere else.
+**Priority chain:** `options.tools[toolID]` → `toolsDir/{toolID}.{modelKey}.txt` → `toolsDir/{toolID}.txt` → config dir → embedded defaults → stock.
 
 ## Customization
 
-### System Prompt
+Edit any `.txt` file in `~/.config/opencode/slim-system/tool/` or `prompt/default.txt` and restart OpenCode. Changes persist across npm updates. Placeholders (`${os}`, `${shell}`, `${chaining}`, etc.) are resolved at runtime.
 
-Edit `~/.config/opencode/slim-system/prompt/default.txt` and restart OpenCode. Changes persist across npm updates.
-
-### Tool Descriptions
-
-Edit any `*.txt` file in `~/.config/opencode/slim-system/tool/`. Each file corresponds to a tool ID from OpenCode's registry. Restart OpenCode to apply changes. Placeholders (`${os}`, `${shell}`, `${directory}`, etc.) are preserved from the original descriptions.
-
-No npm cache clearance needed — files are read fresh on every session. To reset a file to default, delete it and restart; the plugin re-creates it from its embedded defaults.
+To reset a file to default, delete it and restart — the plugin re-seeds from its embedded defaults.
 
 ## Drift Detection
 
-When OpenCode adds new built-in tools or changes tool IDs, the shipped `tool/*.txt` files may fall out of sync. The repo ships `slim-plugin-check` (bash, no deps) for maintainers:
+When OpenCode adds new built-in tools or changes tool IDs, the shipped `tool/*.txt` files may fall out of sync.
 
 ```bash
 # From the repo clone
 ./slim-plugin-check          # check coverage
-./slim-plugin-check --diff   # show add/remove/publish commands
+./slim-plugin-check --diff   # show add/remove commands
 
-# Or via npx (npm-installed)
+# Via npm
 npx opencode-slim-check
 ```
 
 A CI workflow (`.github/workflows/drift-check.yml`) runs weekly and opens an issue if drift is detected.
 
-## Self-Update Notification
-
-At startup, the server plugin fetches `https://registry.npmjs.org/opencode-slim-system` and compares `dist-tags.latest` against the installed version. If a newer version exists:
-
-1. `update_available: true` and `latest_version` are written to the status file
-2. The TUI sidebar shows an ⬆ indicator next to the version number
-3. A dialog appears on first TUI start per version (dismiss once, silenced until next release)
-
-No polling — the npm check runs once at startup with a 5-second timeout.
-
 ## CLI Commands
-
-These are available via `npx opencode-slim-<cmd>` when the package is installed globally, or directly from the repo clone.
 
 | Command | Description |
 |---------|-------------|
 | `opencode-slim-export` | Export config dir as JSON. `npx opencode-slim-export > backup.json` |
 | `opencode-slim-import <file>` | Import JSON blob into config dir. `npx opencode-slim-import backup.json` |
 | `opencode-slim-dump` | Dump embedded defaults as JSON (ignores user edits). |
-| `opencode-slim-check` | Drift check (same as `./slim-plugin-check` in the repo) |
+| `opencode-slim-check` | Drift check (same as `./slim-plugin-check`) |
+
+## Limitations
+
+- **Token savings are approximate.** The 4:1 chars-to-token ratio varies by tokenizer. The `STOCK_TOOL_CHARS` baseline is measured from OpenCode v1.17.9 template files; newer versions may have different stock description lengths.
+- **`slimmed` count shows config dir files, not runtime coverage.** The sidebar shows 16 files in the config dir. Actual tools slimmed depends on your experimental flags (lsp, plan_enter, plan_exit are conditional; tools without those flags enabled will have stock descriptions but still count toward the 16). The real number may be 13-15 depending on your config.
+- **Drift detection is a maintainer tool.** `npx opencode-slim-check` is for repo maintainers, not end users. The plugin works fine without it.
+- **System prompt replacement uses marker heuristics.** Custom prompts (agents with `.md` files) are not touched.
+- **`plan_enter`, `plan_exit`, `lsp`, `question` are conditional tools.** They only exist in the tool registry when the corresponding experimental flags are enabled. Our tool descriptions for them cover all cases, but they're not always active.
 
 ## Files on Disk
 
@@ -179,22 +126,14 @@ These are available via `npx opencode-slim-<cmd>` when the package is installed 
 | `~/.config/opencode/slim-system/prompt/default.txt` | User-editable slim system prompt (auto-seeded) |
 | `/tmp/opencode-slim-system.json` | Runtime status (ephemeral) |
 | `~/.local/state/opencode-slim-system/announced.json` | Last announced update version |
-| `~/.cache/opencode/packages/opencode-slim-system@latest/` | Cached npm package |
-| `~/.opencode/tui.json` | TUI plugin registration (adds sidebar) |
-| `~/.config/opencode/tui.json` | TUI plugin registration (mirror) |
-| `~/.config/opencode/opencode.jsonc` | Server plugin registration |
 
 ## Installation
 
 ```bash
-# Install the plugin
 npm install -g opencode-slim-system
-
-# Or add to opencode.jsonc
 ```
 
 In `~/.config/opencode/opencode.jsonc`:
-
 ```jsonc
 {
   "plugin": ["opencode-slim-system"]
@@ -202,7 +141,6 @@ In `~/.config/opencode/opencode.jsonc`:
 ```
 
 In `~/.opencode/tui.json` and/or `~/.config/opencode/tui.json`:
-
 ```json
 {
   "plugin": ["opencode-slim-system"]
@@ -210,35 +148,6 @@ In `~/.opencode/tui.json` and/or `~/.config/opencode/tui.json`:
 ```
 
 Restart OpenCode. On first TUI load you'll see a toast confirming the plugin loaded.
-
-## Limitations
-
-- **`slimmed` count is config dir files, not runtime coverage** — The sidebar shows all 17 files in `~/.config/opencode/slim-system/tool/`. Actual tools slimmed depends on your experimental flags (`lsp`, `plan_exit`, `repo_clone`, etc. are conditional). For users without those flags enabled, the real count is ~14-15. The TUI always shows the larger number.
-- **Drift detection is a maintainer tool** — `npx opencode-slim-check` is aimed at repo maintainers, not end users. Most users never need it; the plugin works fine as-is.
-
-- **System prompt replacement uses marker heuristics** — The hook looks for strings like "best coding agent on the planet" to identify stock prompts. Custom prompts (agents with custom `.md` files) are not touched.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    OpenCode Session                       │
-│  ┌──────────────┐    ┌─────────────────────────────┐     │
-│  │ System Prompt │◄───│ experimental.chat.system    │     │
-│  │ Construction  │    │    .transform (fallback)    │     │
-│  └──────────────┘    └───────────┬─────────────────┘     │
-│                                  │ reads                  │
-│  ┌──────────────┐    ┌──────────▼─────────────────┐     │
-│  │ Tool Schema  │◄───│ tool.definition (per tool)  │     │
-│  │ Construction │    └──────────┬─────────────────┘     │
-│  └──────────────┘               │ reads                  │
-│                                 │ tool/*.txt files       │
-│  ┌──────────────┐               │                        │
-│  │ TUI Sidebar  │◄──── polls /tmp/opencode-slim-system   │
-│  │ (order 899)  │       .json every 5s                  │
-│  └──────────────┘                                        │
-└─────────────────────────────────────────────────────────┘
-```
 
 ## License
 

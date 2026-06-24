@@ -50,6 +50,9 @@ Prefer over shell grep for locating matches in the repo.`,
 Ops: goToDefinition, findReferences, hover, documentSymbol,
 workspaceSymbol, goToImplementation, callHierarchy (in/out calls).
 filePath, line, character are 1-based.`,
+  "plan_enter": `Suggest switching to plan agent for complex tasks needing planning first.
+ALWAYS call when user mentions wanting a plan.
+Skip for simple tasks or when user wants immediate implementation.`,
   "plan_exit": `Signal planning phase complete — prompts user to switch to build agent.
 Do not use Question for plan approval — this tool handles that.`,
   "question": `Ask the user blocking structured questions via the UI.
@@ -62,12 +65,6 @@ Returns \`N: content\` — never include prefix in Edit.
 Default: 2000 lines from start. Use offset (1-based) + limit.
 Lines >2000 chars truncated. Call in parallel for multiple files.
 Images/PDFs return metadata — vision models process inline.`,
-  "repo_clone": `Clone or refresh a repo into OpenCode's managed cache.
-Accepts git URLs, forge shorthand (owner/repo), local paths.
-Returns cached absolute path. For dependency research only.`,
-  "repo_overview": `Summarize structure and entrypoints of a local repo or directory.
-Reports ecosystems, deps, package manager, and compact tree.
-Use after repo_clone to orient before deeper investigation.`,
   "skill": `Load a skill by name from the session's available_skills list.
 Injects skill instructions and resources into the active session.`,
   "task": `Spawn a sub-agent with independent context and tool access.
@@ -90,4 +87,4 @@ NEVER create files unless explicitly required or helpful.
 No README/docs unless asked. No emojis in code files.`,
 }
 
-// Tool count: 17 | Total chars: 3825 | Avg chars: 225
+// Tool count: 16 | Total chars: 3651 | Avg chars: 228

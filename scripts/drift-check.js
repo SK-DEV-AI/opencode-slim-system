@@ -10,7 +10,7 @@ const showDiff = process.argv.includes("--diff")
 
 const KNOWN_TOOL_IDS = [
   "apply_patch", "bash", "edit", "glob", "grep", "lsp",
-  "plan_exit", "question", "read", "repo_clone", "repo_overview",
+  "plan_enter", "plan_exit", "question", "read",
   "skill", "task", "todowrite", "webfetch", "websearch", "write",
 ]
 
