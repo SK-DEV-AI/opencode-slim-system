@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# Check tool descriptions match opencode's built-in tools.
-# Delegates to the JS-based drift checker.
-# Usage: ./slim-plugin-check [--diff]
-
-set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-"${SCRIPT_DIR}/scripts/drift-check.js" "$@"

@@ -3,14 +3,12 @@ import os from "node:os"
 
 export const STATUS_FILE = "/tmp/opencode-slim-system.json"
 export const LOG_FILE = "/tmp/opencode-slim-system.log"
-export const CACHE_DIR = path.join(os.homedir(), ".local", "state", "opencode-slim-system")
-export const ANNOUNCED_FILE = path.join(CACHE_DIR, "announced.json")
 export const CONFIG_DIR = path.join(os.homedir(), ".config", "opencode", "slim-system")
 export const CONFIG_TOOLS_DIR = path.join(CONFIG_DIR, "tool")
 export const CONFIG_PROMPT_DIR = path.join(CONFIG_DIR, "prompt")
 export const CONFIG_PROMPT_FILE = path.join(CONFIG_PROMPT_DIR, "default.txt")
 
-export const PLACEHOLDERS: Record<string, () => string> = {
+export const PLACEHOLDERS = {
   "{{year}}": () => new Date().getFullYear().toString(),
   "${os}": () => os.platform() === "win32" ? "windows" : os.platform() === "darwin" ? "macos" : "linux",
   "${shell}": () => path.basename(process.env.SHELL ?? "/bin/bash"),

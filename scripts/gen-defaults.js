@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerate src/defaults.ts from tool/ and prompt/ directories.
+// Regenerate src/defaults.js from tool/ and prompt/ directories.
 // Usage: node scripts/gen-defaults.js
 
 import { readFileSync, readdirSync, writeFileSync } from "node:fs"
@@ -30,7 +30,7 @@ const lines = [
   "",
   "export const DEFAULT_SYSTEM_PROMPT = `" + escapeForTs(prompt) + "`",
   "",
-  "export const DEFAULT_TOOL_DESCRIPTIONS: Record<string, string> = {",
+  "export const DEFAULT_TOOL_DESCRIPTIONS = {",
 ]
 
 for (const name of toolNames) {
@@ -47,5 +47,5 @@ const totalChars = toolNames.reduce((sum, n) => {
 const avgChars = toolNames.length > 0 ? Math.round(totalChars / toolNames.length) : 0
 lines.push(`// Tool count: ${toolNames.length} | Total chars: ${totalChars} | Avg chars: ${avgChars}`)
 
-writeFileSync(path.join(ROOT, "src", "defaults.ts"), lines.join("\n"))
+writeFileSync(path.join(ROOT, "src", "defaults.js"), lines.join("\n"))
 console.log(`Wrote ${toolNames.length} tools, ${totalChars} chars total, ${avgChars} avg to src/defaults.ts`)

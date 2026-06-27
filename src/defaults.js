@@ -30,7 +30,7 @@ Tool results and user messages may include <system-reminder> tags with useful in
 - Do NOT commit unless explicitly asked.
 - Verify with tests. Check README for test framework — never assume.`
 
-export const DEFAULT_TOOL_DESCRIPTIONS: Record<string, string> = {
+export const DEFAULT_TOOL_DESCRIPTIONS = {
   "apply_patch": `Apply file changes via opencode's patch format.
 Wrap in Begin Patch / End Patch. Sections: Add File, Delete File, Update File.
 Update File hunks: @@ context, -removed, +added, End of File to EOF.
